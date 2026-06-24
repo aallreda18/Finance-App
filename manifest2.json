@@ -1,0 +1,8 @@
+{
+  "short_name": "MySite",
+  "name": "My GitHub Website",
+  "start_url": "/repository-name/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "theme_color": "#000000"
+}

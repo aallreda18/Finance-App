@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
-<link rel="manifest" href="manifest.json"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="MyFinances"/>
 <meta name="theme-color" content="#f0f4ff"/>
 <link rel="apple-touch-icon" href="icon.png"/>
@@ -262,6 +260,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <button class="btn-action primary-action" onclick="openModal('add-income-modal')"><span class="btn-icon">💵</span>Add Income</button>
         <button class="btn-action" onclick="openModal('update-balance-modal')"><span class="btn-icon">✏️</span>Update Balance</button>
         <button class="btn-action" onclick="openModal('add-account-modal')"><span class="btn-icon">➕</span>Add Account</button>
+        <button class="btn-action primary-action" onclick="openModal('transfer-modal')"><span class="btn-icon">🔄</span>Transfer</button>
       </div>
       <div class="card">
         <div class="card-title">My Accounts</div>
@@ -305,6 +304,15 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <div class="card">
         <div class="card-title">Monthly Summary</div>
         <div id="monthly-summary-content"></div>
+      </div>
+
+      <!-- BUDGET SECTION -->
+      <div class="card" id="budget-card">
+        <div class="section-header" style="margin-bottom:12px">
+          <div class="card-title" style="margin:0">💰 Budget Tracker</div>
+          <span class="section-action" onclick="openModal('budget-modal')">+ Add Budget</span>
+        </div>
+        <div id="budget-list"><div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">No budgets set yet. Tap "+ Add Budget" to set spending limits.</div></div>
       </div>
       <div id="ai-analysis-card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid rgba(37,99,235,.2);border-radius:18px;padding:18px;margin-bottom:12px">
         <!-- Header -->
@@ -397,6 +405,10 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <div class="card" id="goals-overview" style="display:none">
         <div class="card-title">Goals Overview</div>
         <div class="chart-wrap" style="height:180px"><canvas id="goals-chart"></canvas></div>
+      </div>
+      <div class="card" id="acct-usage-card" style="display:none">
+        <div class="card-title">Account Usage by Goals</div>
+        <div id="acct-usage-list"></div>
       </div>
       <div id="goals-list"><div class="empty-state"><div class="empty-icon">🎯</div><p>No goals yet.<br/>Create an envelope to start saving.</p></div></div>
     </div>
@@ -529,11 +541,12 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   </div>
 </div>
 
-<!-- Add Expense -->
+<!-- Add/Edit Expense -->
 <div class="modal-overlay" id="add-expense-modal">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Add Expense</div>
+    <div class="modal-title" id="exp-modal-title">Add Expense</div>
+    <input type="hidden" id="exp-edit-id"/>
     <label>Amount ($)</label>
     <input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0"/>
     <label>Description</label>
@@ -549,6 +562,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <option value="📱 Utilities">📱 Utilities</option>
       <option value="📚 Education">📚 Education</option>
       <option value="✈️ Travel">✈️ Travel</option>
+      <option value="⛪ Church">⛪ Church</option>
       <option value="💼 Other">💼 Other</option>
     </select>
     <label>From Account</label>
@@ -557,7 +571,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <input type="date" id="exp-date"/>
     <div class="modal-row">
       <button class="btn-cancel" onclick="closeModal('add-expense-modal')">Cancel</button>
-      <button class="btn-primary" onclick="addExpense()">Add Expense</button>
+      <button class="btn-primary" id="exp-save-btn" onclick="saveExpense()">Add Expense</button>
     </div>
   </div>
 </div>
@@ -640,6 +654,8 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <input type="number" id="goal-target" placeholder="0.00" step="0.01" min="0"/>
     <label>Initial Amount Already Saved ($)</label>
     <input type="number" id="goal-start" placeholder="0.00" step="0.01" min="0" value="0"/>
+    <label>Linked Account (funds taken from here)</label>
+    <select id="goal-acct-select"></select>
     <label>Target Date (optional)</label>
     <input type="date" id="goal-date"/>
     <div class="modal-row">
@@ -717,6 +733,95 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     </div>
     <label style="margin-top:12px">Enter code from the other user (if they sent one)</label>
     <input type="text" id="approve-code-input" placeholder="Enter 4-digit code" maxlength="4"/>
+  </div>
+</div>
+
+<!-- Transfer Funds -->
+<div class="modal-overlay" id="transfer-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Transfer Between Accounts</div>
+    <label>From Account</label>
+    <select id="transfer-from"></select>
+    <label>To Account</label>
+    <select id="transfer-to"></select>
+    <label>Amount ($)</label>
+    <input type="number" id="transfer-amount" placeholder="0.00" step="0.01" min="0.01"/>
+    <label>Note (optional)</label>
+    <input type="text" id="transfer-note" placeholder="e.g. Moving to savings"/>
+    <div style="margin-top:8px;padding:10px 12px;background:#eff6ff;border-radius:10px;font-size:.8rem;color:#1e40af" id="transfer-preview"></div>
+    <div class="modal-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="closeModal('transfer-modal')">Cancel</button>
+      <button class="btn-primary" onclick="doTransfer()">Transfer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Set Budget -->
+<div class="modal-overlay" id="budget-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="budget-modal-title">Set Budget</div>
+    <input type="hidden" id="budget-edit-period"/>
+    <label>Budget Limit ($)</label>
+    <input type="number" id="budget-amount" placeholder="e.g. 500.00" step="0.01" min="0.01"/>
+    <label>Period</label>
+    <select id="budget-period">
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+    <label>Category (optional — leave blank for total spending)</label>
+    <select id="budget-cat">
+      <option value="">All Spending</option>
+      <option value="🍔 Food">🍔 Food</option>
+      <option value="🚗 Transport">🚗 Transport</option>
+      <option value="🏠 Housing">🏠 Housing</option>
+      <option value="🛒 Shopping">🛒 Shopping</option>
+      <option value="💊 Health">💊 Health</option>
+      <option value="🎬 Entertainment">🎬 Entertainment</option>
+      <option value="📱 Utilities">📱 Utilities</option>
+      <option value="📚 Education">📚 Education</option>
+      <option value="✈️ Travel">✈️ Travel</option>
+      <option value="⛪ Church">⛪ Church</option>
+      <option value="💼 Other">💼 Other</option>
+    </select>
+    <div class="modal-row" style="margin-top:14px">
+      <button class="btn-cancel" onclick="closeModal('budget-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveBudget()">Save Budget</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Goal (linked account) -->
+<div class="modal-overlay" id="edit-goal-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Goal</div>
+    <input type="hidden" id="eg-id"/>
+    <label>Goal Name</label>
+    <input type="text" id="eg-name" placeholder="Goal name"/>
+    <label>Category</label>
+    <select id="eg-type">
+      <option value="✈️ Vacation">✈️ Vacation</option>
+      <option value="🚨 Emergency Fund">🚨 Emergency Fund</option>
+      <option value="🏠 Home">🏠 Home</option>
+      <option value="🚗 Car">🚗 Car</option>
+      <option value="📚 Education">📚 Education</option>
+      <option value="💍 Wedding/Event">💍 Wedding/Event</option>
+      <option value="🎁 Gift">🎁 Gift</option>
+      <option value="🎯 Custom">🎯 Custom</option>
+    </select>
+    <label>Target Amount ($)</label>
+    <input type="number" id="eg-target" placeholder="0.00" step="0.01" min="0"/>
+    <label>Current Saved ($)</label>
+    <input type="number" id="eg-saved" placeholder="0.00" step="0.01" min="0"/>
+    <label>Target Date (optional)</label>
+    <input type="date" id="eg-date"/>
+    <div class="modal-row">
+      <button class="btn-cancel" onclick="closeModal('edit-goal-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveGoalEdit()">Save Changes</button>
+    </div>
   </div>
 </div>
 
@@ -952,13 +1057,18 @@ function populateSelects(){
   const opts=accounts.length
     ? accounts.map(a=>`<option value="${a.id}">${escHtml(a.name)} ($${fmtNum(a.balance)})</option>`).join('')
     : '<option value="">— Add an account first —</option>';
-  ['income-acct-select','exp-acct-select','upd-acct-select'].forEach(id=>{
+  ['income-acct-select','exp-acct-select','upd-acct-select','transfer-from','transfer-to','goal-acct-select'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.innerHTML=opts;
   });
   const goalOpts=goals.length
     ? goals.map(g=>`<option value="${g.id}">${escHtml(g.name)} ($${fmtNum(g.saved)} / $${fmtNum(g.target)})</option>`).join('')
     : '<option value="">— Create a goal first —</option>';
   const cg=document.getElementById('contrib-goal-select'); if(cg) cg.innerHTML=goalOpts;
+  // Wire transfer preview update
+  ['transfer-from','transfer-to','transfer-amount'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.oninput=el.onchange=updateTransferPreview;
+  });
 }
 
 // ════════════════════════════════════════════════════
@@ -1056,7 +1166,32 @@ function addIncome(){
   sendNotification('Income Added','$'+fmtNum(amount)+' added — '+desc);
 }
 
+function editExpense(id){
+  const transactions=getData('transactions');
+  const t=transactions.find(tx=>tx.id===id);
+  if(!t||t.type!=='expense')return;
+  populateSelects();
+  document.getElementById('exp-modal-title').textContent='Edit Expense';
+  document.getElementById('exp-edit-id').value=id;
+  document.getElementById('exp-amount').value=t.amount;
+  document.getElementById('exp-desc').value=t.desc;
+  document.getElementById('exp-cat').value=t.cat;
+  document.getElementById('exp-acct-select').value=t.acctId;
+  document.getElementById('exp-date').value=t.date;
+  document.getElementById('exp-save-btn').textContent='Save Changes';
+  document.getElementById('add-expense-modal').classList.add('open');
+}
+
 function addExpense(){
+  // Reset to add mode then open
+  document.getElementById('exp-modal-title').textContent='Add Expense';
+  document.getElementById('exp-edit-id').value='';
+  document.getElementById('exp-save-btn').textContent='Add Expense';
+  openModal('add-expense-modal');
+}
+
+function saveExpense(){
+  const editId=document.getElementById('exp-edit-id').value;
   const amount=parseFloat(document.getElementById('exp-amount').value);
   const desc=document.getElementById('exp-desc').value.trim()||'Expense';
   const cat=document.getElementById('exp-cat').value;
@@ -1065,20 +1200,82 @@ function addExpense(){
   if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
   if(!acctId){alert('Please add an account first.');return;}
   const transactions=getData('transactions');
-  transactions.push({id:Date.now().toString(),type:'expense',amount,desc,acctId,date,cat});
-  setData('transactions',transactions);
   const accounts=getData('accounts');
-  const idx=accounts.findIndex(a=>a.id===acctId);
-  if(idx>=0){accounts[idx].balance-=amount;setData('accounts',accounts);}
+  if(editId){
+    // Edit mode: reverse old amount, apply new
+    const oldIdx=transactions.findIndex(t=>t.id===editId);
+    if(oldIdx>=0){
+      const old=transactions[oldIdx];
+      // Reverse old balance change
+      const aidx=accounts.findIndex(a=>a.id===old.acctId);
+      if(aidx>=0){accounts[aidx].balance+=old.amount;}
+      // Apply new
+      const nidx=accounts.findIndex(a=>a.id===acctId);
+      if(nidx>=0){accounts[nidx].balance-=amount;}
+      transactions[oldIdx]={...old,amount,desc,cat,acctId,date};
+      setData('accounts',accounts);
+      setData('transactions',transactions);
+    }
+  } else {
+    transactions.push({id:Date.now().toString(),type:'expense',amount,desc,acctId,date,cat});
+    setData('transactions',transactions);
+    const idx=accounts.findIndex(a=>a.id===acctId);
+    if(idx>=0){accounts[idx].balance-=amount;setData('accounts',accounts);}
+  }
   closeModal('add-expense-modal');
   document.getElementById('exp-amount').value='';
   document.getElementById('exp-desc').value='';
+  document.getElementById('exp-edit-id').value='';
+  document.getElementById('exp-modal-title').textContent='Add Expense';
+  document.getElementById('exp-save-btn').textContent='Add Expense';
   renderFinancesScreen();
+  renderStats();
 }
 
 // ════════════════════════════════════════════════════
-//  FINANCES SCREEN
+//  TRANSFER FUNDS
 // ════════════════════════════════════════════════════
+function updateTransferPreview(){
+  const accounts=getData('accounts');
+  const fromId=document.getElementById('transfer-from')?.value;
+  const toId=document.getElementById('transfer-to')?.value;
+  const amt=parseFloat(document.getElementById('transfer-amount')?.value)||0;
+  const el=document.getElementById('transfer-preview');
+  if(!el)return;
+  const fromA=accounts.find(a=>a.id===fromId);
+  const toA=accounts.find(a=>a.id===toId);
+  if(fromA&&toA&&fromA.id!==toA.id&&amt>0)
+    el.textContent=`Moving $${fmtNum(amt)} from ${fromA.name} ($${fmtNum(fromA.balance)}) → ${toA.name} ($${fmtNum(toA.balance)})`;
+  else el.textContent='';
+}
+function doTransfer(){
+  const fromId=document.getElementById('transfer-from').value;
+  const toId=document.getElementById('transfer-to').value;
+  const amount=parseFloat(document.getElementById('transfer-amount').value);
+  const note=document.getElementById('transfer-note').value.trim()||'Transfer';
+  if(!fromId||!toId){alert('Select both accounts.');return;}
+  if(fromId===toId){alert('From and To accounts must be different.');return;}
+  if(!amount||amount<=0){alert('Enter a valid transfer amount.');return;}
+  const accounts=getData('accounts');
+  const fi=accounts.findIndex(a=>a.id===fromId);
+  const ti=accounts.findIndex(a=>a.id===toId);
+  if(fi<0||ti<0)return;
+  if(accounts[fi].balance<amount&&!confirm(`This will overdraw ${accounts[fi].name}. Continue?`))return;
+  accounts[fi].balance-=amount;
+  accounts[ti].balance+=amount;
+  setData('accounts',accounts);
+  // Log as transactions for history
+  const transactions=getData('transactions');
+  const stamp=Date.now().toString();
+  transactions.push({id:stamp+'a',type:'expense',amount,desc:`Transfer to ${accounts[ti].name}`,acctId:fromId,date:today(),cat:'🔄 Transfer'});
+  transactions.push({id:stamp+'b',type:'income', amount,desc:`Transfer from ${accounts[fi].name}`,acctId:toId,date:today(),cat:'🔄 Transfer'});
+  setData('transactions',transactions);
+  closeModal('transfer-modal');
+  document.getElementById('transfer-amount').value='';
+  document.getElementById('transfer-note').value='';
+  renderFinancesScreen();
+  showToast(`Transferred $${fmtNum(amount)} from ${accounts[fi].name} to ${accounts[ti].name}`);
+}
 function renderFinancesScreen(){
   const accounts=getData('accounts');
   const total=accounts.reduce((s,a)=>s+a.balance,0);
@@ -1103,7 +1300,10 @@ function renderRecentTransactions(){
         <div class="tx-name">${escHtml(t.desc)}</div>
         <div class="tx-cat">${t.cat||''} · ${fmtDate(t.date)}</div>
       </div>
-      <div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>
+        ${t.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${t.id}')" title="Edit">✏️</span>`:''}
+      </div>
     </div>`).join('');
 }
 
@@ -1141,6 +1341,7 @@ function renderStats(){
   renderPieChart();
   renderWeeklySummary();
   renderMonthlySummary();
+  renderBudgets();
   renderCategoryBars(); // keeps AI analysis section live
 }
 
@@ -1233,8 +1434,82 @@ function renderMonthlySummary(){
 }
 
 // ════════════════════════════════════════════════════
-//  REMINDERS
+//  BUDGET TRACKER
 // ════════════════════════════════════════════════════
+function saveBudget(){
+  const amount=parseFloat(document.getElementById('budget-amount').value);
+  const period=document.getElementById('budget-period').value;
+  const cat=document.getElementById('budget-cat').value;
+  if(!amount||amount<=0){alert('Please enter a valid budget amount.');return;}
+  const budgets=getData('budgets');
+  // Update if same period+cat exists, else push
+  const key=period+'|'+(cat||'__all__');
+  const idx=budgets.findIndex(b=>b.key===key);
+  const entry={id:idx>=0?budgets[idx].id:Date.now().toString(),key,period,cat,amount};
+  if(idx>=0)budgets[idx]=entry; else budgets.push(entry);
+  setData('budgets',budgets);
+  closeModal('budget-modal');
+  document.getElementById('budget-amount').value='';
+  renderBudgets();
+  showToast('Budget saved ✅');
+}
+
+function deleteBudget(id){
+  setData('budgets',getData('budgets').filter(b=>b.id!==id));
+  renderBudgets();
+}
+
+function renderBudgets(){
+  const budgets=getData('budgets');
+  const transactions=getData('transactions');
+  const el=document.getElementById('budget-list');
+  if(!el)return;
+  if(!budgets.length){
+    el.innerHTML='<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">No budgets set yet. Tap "+ Add Budget" to set spending limits.</div>';
+    return;
+  }
+  const now=new Date();
+  el.innerHTML=budgets.map(b=>{
+    // Calculate current spend for this period and category
+    let filtered=transactions.filter(t=>t.type==='expense');
+    if(b.cat)filtered=filtered.filter(t=>t.cat===b.cat);
+    if(b.period==='weekly'){
+      const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
+      filtered=filtered.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=mon&&d<=now;});
+    } else if(b.period==='monthly'){
+      const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+      filtered=filtered.filter(t=>(t.date||'').startsWith(mk));
+    } else {
+      filtered=filtered.filter(t=>(t.date||'').startsWith(now.getFullYear().toString()));
+    }
+    const spent=filtered.reduce((s,t)=>s+t.amount,0);
+    const pct=b.amount>0?Math.min(Math.round(spent/b.amount*100),100):0;
+    const over=spent>b.amount;
+    const barColor=pct>=90?'#dc2626':pct>=70?'#b45309':'#047857';
+    const periodLabel={weekly:'Weekly',monthly:'Monthly',yearly:'Yearly'}[b.period]||b.period;
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div>
+          <span style="font-size:.88rem;font-weight:600">${b.cat||'All Spending'}</span>
+          <span style="font-size:.72rem;color:var(--text-secondary);margin-left:6px">${periodLabel}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:.82rem;font-weight:700;color:${over?'var(--red)':'var(--text-primary)'}">$${fmtNum(spent)} / $${fmtNum(b.amount)}</span>
+          <span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBudget('${b.id}')">✕</span>
+        </div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-top:3px">
+        <span style="color:${over?'var(--red)':'var(--text-secondary)'}">
+          ${over?`⚠️ Over budget by $${fmtNum(spent-b.amount)}`:`$${fmtNum(Math.max(b.amount-spent,0))} remaining`}
+        </span>
+        <span style="color:var(--text-secondary)">${pct}% used</span>
+      </div>
+    </div>`;
+  }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
+}
 function addBill(){
   const name=document.getElementById('bill-name').value.trim();
   const amount=parseFloat(document.getElementById('bill-amount').value)||0;
@@ -1346,11 +1621,12 @@ function addGoal(){
   const type=document.getElementById('goal-type').value;
   const target=parseFloat(document.getElementById('goal-target').value)||0;
   const start=parseFloat(document.getElementById('goal-start').value)||0;
+  const acctId=document.getElementById('goal-acct-select').value||null;
   const date=document.getElementById('goal-date').value||null;
   if(!name){alert('Please enter a goal name.');return;}
   if(!target||target<=0){alert('Please enter a target amount.');return;}
   const goals=getData('goals');
-  goals.push({id:Date.now().toString(),name,type,target,saved:start,date});
+  goals.push({id:Date.now().toString(),name,type,target,saved:start,acctId,date,met:false});
   setData('goals',goals);
   closeModal('add-goal-modal');
   document.getElementById('goal-name').value='';
@@ -1358,6 +1634,36 @@ function addGoal(){
   document.getElementById('goal-start').value='0';
   document.getElementById('goal-date').value='';
   renderGoals();
+}
+
+function openEditGoal(id){
+  const goals=getData('goals');
+  const g=goals.find(x=>x.id===id);
+  if(!g)return;
+  document.getElementById('eg-id').value=id;
+  document.getElementById('eg-name').value=g.name;
+  document.getElementById('eg-type').value=g.type;
+  document.getElementById('eg-target').value=g.target;
+  document.getElementById('eg-saved').value=g.saved;
+  document.getElementById('eg-date').value=g.date||'';
+  openModal('edit-goal-modal');
+}
+
+function saveGoalEdit(){
+  const id=document.getElementById('eg-id').value;
+  const name=document.getElementById('eg-name').value.trim();
+  const type=document.getElementById('eg-type').value;
+  const target=parseFloat(document.getElementById('eg-target').value)||0;
+  const saved=parseFloat(document.getElementById('eg-saved').value)||0;
+  const date=document.getElementById('eg-date').value||null;
+  if(!name||!target){alert('Please fill in all required fields.');return;}
+  const goals=getData('goals');
+  const idx=goals.findIndex(g=>g.id===id);
+  if(idx>=0){goals[idx]={...goals[idx],name,type,target,saved:Math.min(saved,target),date};}
+  setData('goals',goals);
+  closeModal('edit-goal-modal');
+  renderGoals();
+  showToast('Goal updated ✅');
 }
 
 function contributeToGoal(){
@@ -1383,20 +1689,26 @@ function deleteGoal(id){
 
 function renderGoals(){
   const goals=getData('goals');
+  const accounts=getData('accounts');
   const el=document.getElementById('goals-list');
   const overview=document.getElementById('goals-overview');
+  const usageCard=document.getElementById('acct-usage-card');
   if(!goals.length){
     el.innerHTML='<div class="empty-state"><div class="empty-icon">🎯</div><p>No goals yet.<br/>Create an envelope to start saving.</p></div>';
-    overview.style.display='none';return;
+    overview.style.display='none';
+    usageCard.style.display='none';
+    return;
   }
   overview.style.display='block';
   renderGoalsChart(goals);
+  renderAccountUsageChart(goals,accounts);
   el.innerHTML=goals.map(g=>{
     const pct=g.target>0?Math.min(Math.round(g.saved/g.target*100),100):0;
     const remaining=Math.max(g.target-g.saved,0);
     const pClass=pct>=100?'green':pct>=60?'':'gold';
-    const emoji=g.type.split(' ')[0];
+    const emoji=(g.type||'').split(' ')[0];
     const daysLeft=g.date?Math.ceil((new Date(g.date+'T00:00:00')-new Date())/86400000):null;
+    const linkedAcct=g.acctId?accounts.find(a=>a.id===g.acctId):null;
     return`<div class="envelope">
       <div class="envelope-top">
         <span class="envelope-icon">${emoji}</span>
@@ -1404,18 +1716,61 @@ function renderGoals(){
           <div class="envelope-name">${escHtml(g.name)}</div>
           <div class="envelope-amounts">$${fmtNum(g.saved)} saved · $${fmtNum(remaining)} to go${g.date?' · '+(daysLeft>0?daysLeft+' days left':'Past target date'):''}
           </div>
+          ${linkedAcct?`<div style="font-size:.72rem;color:var(--accent);margin-top:2px">🏦 Linked: ${escHtml(linkedAcct.name)}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div class="envelope-pct">${pct}%</div>
-          <div style="font-size:.65rem;cursor:pointer;color:var(--red);margin-top:2px" onclick="deleteGoal('${g.id}')">Delete</div>
         </div>
       </div>
       <div class="progress-track"><div class="progress-fill ${pClass}" style="width:${pct}%"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-top:4px">
         <span>$${fmtNum(g.saved)}</span><span>Goal: $${fmtNum(g.target)}</span>
       </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <span style="font-size:.72rem;cursor:pointer;color:var(--accent);background:#dbeafe;padding:3px 8px;border-radius:6px" onclick="openEditGoal('${g.id}')">✏️ Edit</span>
+        <span style="font-size:.72rem;cursor:pointer;color:var(--red);background:#fee2e2;padding:3px 8px;border-radius:6px" onclick="deleteGoal('${g.id}')">🗑️ Delete</span>
+      </div>
     </div>`;
   }).join('');
+}
+
+function renderAccountUsageChart(goals,accounts){
+  const usageCard=document.getElementById('acct-usage-card');
+  const usageList=document.getElementById('acct-usage-list');
+  // Group goal savings by linked account
+  const byAcct={};
+  goals.forEach(g=>{
+    if(g.acctId&&g.saved>0){
+      byAcct[g.acctId]=(byAcct[g.acctId]||0)+g.saved;
+    }
+  });
+  if(!Object.keys(byAcct).length){usageCard.style.display='none';return;}
+  usageCard.style.display='block';
+  const COLORS=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
+  usageList.innerHTML=Object.entries(byAcct).map(([acctId,totalSaved],i)=>{
+    const acct=accounts.find(a=>a.id===acctId);
+    if(!acct)return'';
+    const pct=acct.balance+totalSaved>0?Math.min(Math.round(totalSaved/(acct.balance+totalSaved)*100),100):0;
+    const color=COLORS[i%COLORS.length];
+    // Goals linked to this account
+    const linked=goals.filter(g=>g.acctId===acctId&&g.saved>0);
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:.88rem;font-weight:600">🏦 ${escHtml(acct.name)}</div>
+        <div style="font-size:.82rem;font-weight:700;color:${color}">$${fmtNum(totalSaved)} in goals (${pct}%)</div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-secondary);margin-top:3px">Account balance: $${fmtNum(acct.balance)} · Goals allocated: $${fmtNum(totalSaved)}</div>
+      <div style="margin-top:6px;padding:6px 10px;background:#f8faff;border-radius:8px">
+        ${linked.map(g=>`<div style="display:flex;justify-content:space-between;font-size:.75rem;padding:2px 0">
+          <span>${(g.type||'').split(' ')[0]} ${escHtml(g.name)}</span>
+          <span style="font-weight:600;color:${color}">$${fmtNum(g.saved)} / $${fmtNum(g.target)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
 }
 
 function renderGoalsChart(goals){

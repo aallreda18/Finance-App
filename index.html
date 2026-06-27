@@ -200,15 +200,15 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   <h1 class="auth-title">MyFinances</h1>
   <p class="auth-sub">Your personal finance companion</p>
   <div class="auth-tabs">
-    <div class="auth-tab active" id="tab-login">Sign In</div>
-    <div class="auth-tab" id="tab-register">Create Account</div>
+    <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+    <div class="auth-tab" onclick="switchAuthTab('register')">Create Account</div>
   </div>
   <div class="auth-form">
     <div id="auth-name-wrap" style="display:none"><input type="text" id="auth-fullname" placeholder="Full Name"/></div>
-    <input type="text" id="auth-username" placeholder="Username" autocomplete="username" autocapitalize="none"/>
+    <input type="text" id="auth-username" placeholder="Username" autocomplete="username"/>
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password"/>
     <div class="auth-error" id="auth-error"></div>
-    <button class="btn-primary" id="auth-btn">Sign In</button>
+    <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Sign In</button>
   </div>
 </div>
 
@@ -827,728 +827,91 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 
 <script>
 // ════════════════════════════════════════════════════
-//  MYFINANCES — Pure localStorage, no Firebase
-//  Works on iPhone Safari, Android, all browsers
+//  DATA STORE — per-user namespaced localStorage
 // ════════════════════════════════════════════════════
+let currentUser = null;
+let currentUserFullname = '';
 
-// ── STATE ────────────────────────────────────────────
-let currentUser     = null;  // username string
-let currentFullname = '';
-let mutualPartner   = null;  // partner username string
-let authMode        = 'login';
+function uKey(k){ return 'mf_'+currentUser+'_'+k; }
+function getData(k){ try{ return JSON.parse(localStorage.getItem(uKey(k)))||[]; }catch{ return []; } }
+function setData(k,v){ localStorage.setItem(uKey(k),JSON.stringify(v)); }
+function getObj(k,def={}){ try{ return JSON.parse(localStorage.getItem(uKey(k)))||def; }catch{ return def; } }
+function setObj(k,v){ localStorage.setItem(uKey(k),JSON.stringify(v)); }
 
-// ── LOCALSTORAGE HELPERS ─────────────────────────────
-// All user data is stored under keys: mf_{username}_{collection}
-// User registry stored under: mf_users (object keyed by username)
-// Session stored under: mf_session (persists across page refresh)
-
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem('mf_users')) || {}; } catch { return {}; }
+function getAllUsers(){
+  try{ return JSON.parse(localStorage.getItem('mf_users'))||{}; }catch{ return {}; }
 }
-function saveUsers(u) { localStorage.setItem('mf_users', JSON.stringify(u)); }
+function saveAllUsers(u){ localStorage.setItem('mf_users',JSON.stringify(u)); }
 
-function uKey(col) { return 'mf_' + currentUser + '_' + col; }
-function getData(col) {
-  try { return JSON.parse(localStorage.getItem(uKey(col))) || []; } catch { return []; }
+// Cross-user read (read-only, for mutual)
+function getDataFor(user,k){ try{ return JSON.parse(localStorage.getItem('mf_'+user+'_'+k))||[]; }catch{ return []; } }
+function getObjFor(user,k,def={}){ try{ return JSON.parse(localStorage.getItem('mf_'+user+'_'+k))||def; }catch{ return def; } }
+
+// Shared connection store (not user-namespaced)
+function getShared(k,def=null){ try{ const v=localStorage.getItem('mf_shared_'+k); return v?JSON.parse(v):def; }catch{ return def; } }
+function setShared(k,v){ localStorage.setItem('mf_shared_'+k,JSON.stringify(v)); }
+
+// ════════════════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════════════════
+let authMode='login';
+function switchAuthTab(mode){
+  authMode=mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&mode==='login')||(i===1&&mode==='register')));
+  document.getElementById('auth-name-wrap').style.display=mode==='register'?'block':'none';
+  document.getElementById('auth-btn').textContent=mode==='register'?'Create Account':'Sign In';
+  document.getElementById('auth-error').textContent='';
 }
-function setData(col, val) { localStorage.setItem(uKey(col), JSON.stringify(val)); }
-function getDataFor(username, col) {
-  try { return JSON.parse(localStorage.getItem('mf_' + username + '_' + col)) || []; } catch { return []; }
-}
 
-// ── AUTH ─────────────────────────────────────────────
-function handleAuth() {
-  const username  = (document.getElementById('auth-username').value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
-  const password  = document.getElementById('auth-password').value;
-  const err       = document.getElementById('auth-error');
-  err.textContent = '';
-
-  if (!username) { err.textContent = 'Please enter a username.'; return; }
-  if (!password) { err.textContent = 'Please enter a password.'; return; }
-
-  const users = getUsers();
-
-  if (authMode === 'register') {
-    const fullname = (document.getElementById('auth-fullname').value||'').trim();
-    if (!fullname)       { err.textContent = 'Please enter your full name.'; return; }
-    if (password.length < 4) { err.textContent = 'Password must be at least 4 characters.'; return; }
-    if (users[username]) { err.textContent = 'Username already taken. Try another.'; return; }
-    // Save new user
-    users[username] = { password, fullname, partnerUsername: null };
-    saveUsers(users);
-    startSession(username, fullname);
+function handleAuth(){
+  const username=document.getElementById('auth-username').value.trim().toLowerCase().replace(/\s+/g,'');
+  const password=document.getElementById('auth-password').value;
+  const err=document.getElementById('auth-error');
+  if(!username||!password){err.textContent='Please fill in all fields.';return;}
+  let users=getAllUsers();
+  if(authMode==='register'){
+    const fullname=document.getElementById('auth-fullname').value.trim();
+    if(!fullname){err.textContent='Please enter your full name.';return;}
+    if(password.length<4){err.textContent='Password must be at least 4 characters.';return;}
+    if(users[username]){err.textContent='Username already taken. Try another.';return;}
+    users[username]={password,fullname};
+    saveAllUsers(users);
+    loginUser(username,fullname);
   } else {
-    if (!users[username]) { err.textContent = 'Username not found. Check spelling or create an account.'; return; }
-    if (users[username].password !== password) { err.textContent = 'Incorrect password.'; return; }
-    startSession(username, users[username].fullname);
+    if(!users[username]||users[username].password!==password){err.textContent='Invalid username or password.';return;}
+    loginUser(username,users[username].fullname);
   }
 }
 
-function startSession(username, fullname) {
-  currentUser     = username;
-  currentFullname = fullname || username;
-  // Persist login across page refreshes
-  localStorage.setItem('mf_session', username);
-  // Check for partner
-  const users = getUsers();
-  mutualPartner = users[username]?.partnerUsername || null;
-  showApp();
-}
-
-function showApp() {
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display         = 'flex';
-  const initials = currentFullname.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('um-name').textContent     = currentFullname;
-  document.getElementById('um-username').textContent = '@' + currentUser;
-  if (mutualPartner) {
-    document.getElementById('mutual-nav').style.display    = 'flex';
-    document.getElementById('u-disconnect').style.display  = 'flex';
-  }
+function loginUser(username,fullname){
+  currentUser=username;
+  currentUserFullname=fullname||username;
+  // Persist login across page refresh (localStorage key, not sessionStorage)
+  localStorage.setItem('mf_active_session',username);
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  const initials=(fullname||username).split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('user-avatar').textContent=initials;
+  document.getElementById('um-name').textContent=fullname||username;
+  document.getElementById('um-username').textContent='@'+username;
   initApp();
 }
 
-function doLogout() {
-  localStorage.removeItem('mf_session');
-  currentUser = null; currentFullname = ''; mutualPartner = null;
-  document.getElementById('auth-screen').style.display = 'flex';
-  document.getElementById('app').style.display         = 'none';
-  document.getElementById('auth-username').value       = '';
-  document.getElementById('auth-password').value       = '';
-  document.getElementById('auth-error').textContent    = '';
-  document.getElementById('auth-name-wrap').style.display = 'none';
-  document.getElementById('auth-btn').textContent      = 'Sign In';
-  document.getElementById('tab-login').classList.add('active');
-  document.getElementById('tab-register').classList.remove('active');
-  authMode = 'login';
+function doLogout(){
+  localStorage.removeItem('mf_active_session');
+  location.reload();
 }
 
-function confirmDelete() {
-  closeDPs();
-  if (!confirm('Delete your account and ALL your data? This cannot be undone.')) return;
-  if (!confirm('Final warning — this is permanent.')) return;
+function deleteAccount(){
+  if(!confirm('Delete your account and ALL your data? This cannot be undone.'))return;
+  if(!confirm('Are you absolutely sure? All balances, transactions, goals, and reminders will be permanently deleted.'))return;
   // Remove all user data
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('mf_' + currentUser + '_'));
-  keys.forEach(k => localStorage.removeItem(k));
-  // Remove from user registry
-  const users = getUsers();
-  // Clear partner link on other side
-  if (users[currentUser]?.partnerUsername) {
-    const partner = users[currentUser].partnerUsername;
-    if (users[partner]) { users[partner].partnerUsername = null; }
-  }
-  delete users[currentUser];
-  saveUsers(users);
-  doLogout();
-}
-
-function changePassword() {
-  const cur  = document.getElementById('cp-current').value;
-  const nw   = document.getElementById('cp-new').value;
-  const conf = document.getElementById('cp-confirm').value;
-  const err  = document.getElementById('cp-error');
-  err.textContent = '';
-  const users = getUsers();
-  if (users[currentUser].password !== cur) { err.textContent = 'Current password is incorrect.'; return; }
-  if (nw.length < 4)  { err.textContent = 'New password must be at least 4 characters.'; return; }
-  if (nw !== conf)    { err.textContent = 'Passwords do not match.'; return; }
-  users[currentUser].password = nw;
-  saveUsers(users);
-  closeModal('change-password-modal');
-  ['cp-current','cp-new','cp-confirm'].forEach(id => document.getElementById(id).value = '');
-  showToast('Password changed ✅');
-}
-
-// Auto-resume session on page load
-(function resumeSession() {
-  const saved = localStorage.getItem('mf_session');
-  if (saved) {
-    const users = getUsers();
-    if (users[saved]) {
-      startSession(saved, users[saved].fullname);
-      return;
-    }
-  }
-  // No session — show auth screen
-  document.getElementById('auth-screen').style.display = 'flex';
-})();
-
-// ── AUTH TAB SWITCHING ────────────────────────────────
-function switchAuthTab(mode) {
-  authMode = mode;
-  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
-  document.getElementById('tab-register').classList.toggle('active', mode === 'register');
-  document.getElementById('auth-name-wrap').style.display = mode === 'register' ? 'block' : 'none';
-  document.getElementById('auth-btn').textContent = mode === 'register' ? 'Create Account' : 'Sign In';
-  document.getElementById('auth-error').textContent = '';
-}
-
-document.getElementById('tab-login').addEventListener('click', () => switchAuthTab('login'));
-document.getElementById('tab-register').addEventListener('click', () => switchAuthTab('register'));
-document.getElementById('auth-btn').addEventListener('click', handleAuth);
-document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
-
-// ════════════════════════════════════════════════════
-//  PARTNER CONNECTION
-//  Cross-device approach: user generates a link/code
-//  that encodes the connection in the URL, which the
-//  partner opens on THEIR device to accept.
-// ════════════════════════════════════════════════════
-function openConnectFlow() {
-  document.getElementById('connect-error').textContent = '';
-  document.getElementById('connect-username').value = '';
-  // Reset to initial state
-  document.getElementById('conn-step1').style.display = 'block';
-  document.getElementById('conn-step2').style.display = 'none';
-  openModal('connect-modal');
-}
-
-function sendConnectRequest() {
-  const target = (document.getElementById('connect-username').value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
-  const err = document.getElementById('connect-error');
-  err.textContent = '';
-  if (!target) { err.textContent = 'Please enter a username.'; return; }
-  if (target === currentUser) { err.textContent = 'You cannot connect with yourself.'; return; }
-  if (mutualPartner) { err.textContent = 'Already connected. Disconnect first.'; return; }
-
-  // Generate a 6-digit code
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Store in users registry so it persists across page loads on THIS device
-  const users = getUsers();
-  users[currentUser] = users[currentUser] || {};
-  users[currentUser].pendingRequest = { to: target, code, ts: Date.now() };
-  saveUsers(users);
-
-  // Also store as a shared request key so the partner can find it by username
-  // This works when BOTH users are on the SAME device (family sharing)
-  localStorage.setItem('mf_req_for_' + target, JSON.stringify({ from: currentUser, code, ts: Date.now() }));
-
-  // Generate a shareable link that includes everything the partner needs
-  const baseUrl = window.location.href.split('?')[0].split('#')[0];
-  const linkData = btoa(JSON.stringify({ action:'connect', from: currentUser, to: target, code }));
-  const shareLink = baseUrl + '?connect=' + linkData;
-
-  // Show step 2
-  document.getElementById('conn-step1').style.display = 'none';
-  document.getElementById('conn-step2').style.display = 'block';
-  document.getElementById('conn-code-display').textContent = code;
-  document.getElementById('conn-share-link').value = shareLink;
-}
-
-function copyConnectLink() {
-  const link = document.getElementById('conn-share-link').value;
-  navigator.clipboard.writeText(link).then(()=>showToast('Link copied! Send it to your partner 📋')).catch(()=>{
-    document.getElementById('conn-share-link').select();
-    document.execCommand('copy');
-    showToast('Link copied!');
-  });
-}
-
-function checkPendingConnectionRequests() {
-  // Check if opened via connect link
-  const params = new URLSearchParams(window.location.search);
-  const connectParam = params.get('connect');
-  if (connectParam) {
-    try {
-      const data = JSON.parse(atob(connectParam));
-      if (data.action === 'connect' && data.to === currentUser) {
-        // This user is the target — show approval modal
-        window._pendingConnReq = { from: data.from, code: data.code };
-        updateNotifBadge();
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setTimeout(() => {
-          openApproveModal(data.from);
-        }, 500);
-        return;
-      }
-    } catch(e) {}
-  }
-
-  // Check same-device localStorage request
-  const raw = localStorage.getItem('mf_req_for_' + currentUser);
-  if (raw) {
-    try {
-      const req = JSON.parse(raw);
-      // Only show if less than 24 hours old
-      if (Date.now() - req.ts < 86400000) {
-        window._pendingConnReq = req;
-        updateNotifBadge();
-      } else {
-        localStorage.removeItem('mf_req_for_' + currentUser);
-      }
-    } catch {}
-  }
-}
-
-function openApproveModal(fromUsername) {
-  const req = window._pendingConnReq;
-  if (!req) return;
-  document.getElementById('approve-requester').textContent = '@' + (fromUsername || req.from);
-  document.getElementById('approve-code').textContent = req.code;
-  document.getElementById('approve-code-input').value = '';
-  openModal('approve-modal');
-}
-
-function checkApprovalCode() {
-  const entered = document.getElementById('approve-code-input').value.trim();
-  const req = window._pendingConnReq;
-  if (!req) { alert('No pending request.'); closeModal('approve-modal'); return; }
-  if (entered !== req.code) { alert('Incorrect code. Double-check the 6-digit code with your partner.'); return; }
-
-  // Connect both users in the local registry
-  const users = getUsers();
-  if (!users[currentUser]) users[currentUser] = {};
-  users[currentUser].partnerUsername = req.from;
-  // Set partner link for the requester too (works if on same device; partner's side will pick it up via link)
-  if (users[req.from]) {
-    users[req.from].partnerUsername = currentUser;
-    users[req.from].pendingRequest = null;
-  }
-  saveUsers(users);
-
-  // Clean up request
-  localStorage.removeItem('mf_req_for_' + currentUser);
-  mutualPartner = req.from;
-  window._pendingConnReq = null;
-  document.getElementById('mutual-nav').style.display   = 'flex';
-  document.getElementById('u-disconnect').style.display = 'flex';
-  closeModal('approve-modal');
-  updateNotifBadge();
-  showToast('Connected with @' + req.from + ' 🎉');
-  // Generate a completion link for the requester to open on their device
-  const baseUrl = window.location.href.split('?')[0].split('#')[0];
-  const doneData = btoa(JSON.stringify({ action:'connected', you: currentUser, partner: req.from }));
-  const doneLink = baseUrl + '?approved=' + doneData;
-  if (confirm('Connection approved! 🎉\n\nSend this link to @' + req.from + ' so their device also shows the Mutual Finances tab:\n\n' + doneLink + '\n\nTap OK to copy the link.')) {
-    navigator.clipboard.writeText(doneLink).catch(()=>{});
-  }
-}
-
-function denyConnection() {
-  if (window._pendingConnReq) {
-    localStorage.removeItem('mf_req_for_' + currentUser);
-    window._pendingConnReq = null;
-  }
-  closeModal('approve-modal');
-  updateNotifBadge();
-}
-
-function disconnectPartner() {
-  closePanels('');
-  if (!confirm('Disconnect from @' + mutualPartner + '?')) return;
-  const users = getUsers();
-  if (users[currentUser]) users[currentUser].partnerUsername = null;
-  if (mutualPartner && users[mutualPartner]) users[mutualPartner].partnerUsername = null;
-  saveUsers(users);
-  mutualPartner = null;
-  document.getElementById('mutual-nav').style.display   = 'none';
-  document.getElementById('u-disconnect').style.display = 'none';
-  if (document.getElementById('screen-mutual')?.classList.contains('active')) {
-    switchScreen('finances', document.querySelector('.nav-item'));
-  }
-  showToast('Disconnected from partner.');
-}
-
-// Check if opened via an "approved" link (completes connection on requester's device)
-function checkApprovedLink() {
-  const params = new URLSearchParams(window.location.search);
-  const approvedParam = params.get('approved');
-  if (approvedParam) {
-    try {
-      const data = JSON.parse(atob(approvedParam));
-      if (data.action === 'connected' && data.you === currentUser) {
-        const users = getUsers();
-        if (!users[currentUser]) users[currentUser] = {};
-        users[currentUser].partnerUsername = data.partner;
-        users[currentUser].pendingRequest = null;
-        saveUsers(users);
-        mutualPartner = data.partner;
-        document.getElementById('mutual-nav').style.display   = 'flex';
-        document.getElementById('u-disconnect').style.display = 'flex';
-        window.history.replaceState({}, document.title, window.location.pathname);
-        showToast('Connected with @' + data.partner + ' 🎉');
-      }
-    } catch(e) {}
-  }
-}
-
-window.openApproveModal = function(fromUsername) {
-  const req = window._pendingConnReq;
-  if (!req) return;
-  document.getElementById('approve-requester').textContent = '@' + (fromUsername || req.fromUsername);
-  document.getElementById('approve-code').textContent = req.code;
-  document.getElementById('approve-code-input').value = '';
-  openModal('approve-modal');
-};
-
-window.checkApprovalCode = async function() {
-  const entered = document.getElementById('approve-code-input').value.trim();
-  const req = window._pendingConnReq;
-  if (!req) { alert('No pending request.'); return; }
-  if (entered !== req.code) { alert('Incorrect code. Ask your partner to share the exact 4-digit code.'); return; }
-  try {
-    // Mark approved
-    await updateDoc(doc(db,'connections', req.docId), { status: 'approved' });
-    // Link both users
-    await updateDoc(doc(db,'users',currentUser.uid), { partnerUid: req.fromUid });
-    await updateDoc(doc(db,'users',req.fromUid), { partnerUid: currentUser.uid });
-    mutualPartner = req.fromUid;
-    partnerUsername = req.fromUsername;
-    window._pendingConnReq = null;
-    document.getElementById('mutual-nav-item').style.display = 'flex';
-    document.getElementById('um-mutual-link').style.display = 'flex';
-    closeModal('approve-modal');
-    updateNotifBadge();
-    showToast('Connected with @' + req.fromUsername + ' 🎉');
-  } catch(e) { alert('Error: ' + e.message); }
-};
-
-window.denyConnection = async function() {
-  const req = window._pendingConnReq;
-  if (req) {
-    await updateDoc(doc(db,'connections', req.docId), { status: 'denied' });
-    window._pendingConnReq = null;
-  }
-  closeModal('approve-modal');
-  updateNotifBadge();
-};
-
-// ════════════════════════════════════════════════════
-//  ACCOUNTS  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.addAccount = function() {
-  const name    = document.getElementById('acct-name').value.trim();
-  const type    = document.getElementById('acct-type').value;
-  const balance = parseFloat(document.getElementById('acct-balance').value)||0;
-  if (!name) { alert('Please enter an account name.'); return; }
-  const saved = {id:Date.now().toString(36)+Math.random().toString(36).slice(2), name, type, balance};
-  const _accts = getData('accounts'); _accts.push(saved); setData('accounts', _accts);
-  closeModal('add-account-modal');
-  document.getElementById('acct-name').value = '';
-  document.getElementById('acct-balance').value = '';
-  renderFinancesScreen();
-  showToast('Account added ✅');
-};
-
-window.updateBalance = function() {
-  const id = document.getElementById('upd-acct-select').value;
-  const balance = parseFloat(document.getElementById('upd-balance').value);
-  if (!id)          { alert('No accounts to update.'); return; }
-  if (isNaN(balance)) { alert('Enter a valid amount.'); return; }
-  const _ub_arr = getData('accounts'); const _ub_i = _ub_arr.findIndex(a=>a.id===id); if(_ub_i>=0){_ub_arr[_ub_i].balance=balance; setData('accounts',_ub_arr);}
-  const i = getData('accounts').findIndex(a=>a.id===id);
-  if (i>=0) getData('accounts')[i].balance = balance;
-  closeModal('update-balance-modal');
-  document.getElementById('upd-balance').value = '';
-  renderFinancesScreen(); renderStats();
-  showToast('Balance updated ✅');
-};
-
-// ════════════════════════════════════════════════════
-//  INCOME  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.addIncome = function() {
-  const amount = parseFloat(document.getElementById('income-amount').value);
-  const desc   = document.getElementById('income-desc').value.trim() || 'Income';
-  const acctId = document.getElementById('income-acct-select').value;
-  const date   = document.getElementById('income-date').value || today();
-  if (!amount||amount<=0) { alert('Enter a valid amount.'); return; }
-  if (!acctId) { alert('Add an account first.'); return; }
-  const tx = {id:Date.now().toString(36)+Math.random().toString(36).slice(2), type:'income', amount, desc, acctId, date, cat:'💵 Income'};
-  const _txs = getData('transactions'); _txs.push(tx); setData('transactions', _txs);
-  const i = getData('accounts').findIndex(a=>a.id===acctId);
-  if (i>=0) { const _ia=getData('accounts'); _ia[i].balance+=amount; setData('accounts',_ia); }
-  closeModal('add-income-modal');
-  document.getElementById('income-amount').value = '';
-  document.getElementById('income-desc').value = '';
-  renderFinancesScreen(); renderStats();
-  showToast('+$' + fmtNum(amount) + ' added ✅');
-};
-
-// ════════════════════════════════════════════════════
-//  EXPENSES  (Firestore-backed, with edit)
-// ════════════════════════════════════════════════════
-window.editExpense = function(id) {
-  const t = getData('transactions').find(tx=>tx.id===id);
-  if (!t||t.type!=='expense') return;
-  populateSelects();
-  document.getElementById('exp-modal-title').textContent = 'Edit Expense';
-  document.getElementById('exp-edit-id').value = id;
-  document.getElementById('exp-amount').value  = t.amount;
-  document.getElementById('exp-desc').value    = t.desc;
-  document.getElementById('exp-cat').value     = t.cat;
-  document.getElementById('exp-acct-select').value = t.acctId;
-  document.getElementById('exp-date').value    = t.date;
-  document.getElementById('exp-save-btn').textContent = 'Save Changes';
-  document.getElementById('add-expense-modal').classList.add('open');
-};
-
-window.addExpense = function() {
-  document.getElementById('exp-modal-title').textContent = 'Add Expense';
-  document.getElementById('exp-edit-id').value = '';
-  document.getElementById('exp-save-btn').textContent = 'Add Expense';
-  openModal('add-expense-modal');
-};
-
-window.saveExpense = function() {
-  const editId = document.getElementById('exp-edit-id').value;
-  const amount = parseFloat(document.getElementById('exp-amount').value);
-  const desc   = document.getElementById('exp-desc').value.trim() || 'Expense';
-  const cat    = document.getElementById('exp-cat').value;
-  const acctId = document.getElementById('exp-acct-select').value;
-  const date   = document.getElementById('exp-date').value || today();
-  if (!amount||amount<=0) { alert('Enter a valid amount.'); return; }
-  if (!acctId) { alert('Add an account first.'); return; }
-
-  if (editId) {
-    const old = getData('transactions').find(t=>t.id===editId);
-    if (old) {
-      // Reverse old balance effect
-      const oi = getData('accounts').findIndex(a=>a.id===old.acctId);
-      if (oi>=0) { const _ea=getData('accounts'); _ea[oi].balance+=old.amount; setData('accounts',_ea); }
-      // Apply new
-      const ni = getData('accounts').findIndex(a=>a.id===acctId);
-      if (ni>=0) { const _na=getData('accounts'); _na[ni].balance-=amount; setData('accounts',_na); }
-      const _etxs=getData('transactions'); const _eti=_etxs.findIndex(t=>t.id===editId);
-      if(_eti>=0){_etxs[_eti]={id:editId,type:'expense',amount,desc,cat,acctId,date}; setData('transactions',_etxs);}
-    }
-  } else {
-    const tx = {id:Date.now().toString(36)+Math.random().toString(36).slice(2),type:'expense',amount,desc,cat,acctId,date};
-    const _ntxs=getData('transactions'); _ntxs.push(tx); setData('transactions',_ntxs);
-    const _na2=getData('accounts'); const _ni2=_na2.findIndex(a=>a.id===acctId); if(_ni2>=0){_na2[_ni2].balance-=amount; setData('accounts',_na2);}
-  }
-  closeModal('add-expense-modal');
-  document.getElementById('exp-amount').value = '';
-  document.getElementById('exp-desc').value   = '';
-  document.getElementById('exp-edit-id').value = '';
-  document.getElementById('exp-modal-title').textContent = 'Add Expense';
-  document.getElementById('exp-save-btn').textContent = 'Add Expense';
-  renderFinancesScreen(); renderStats();
-};
-
-// ════════════════════════════════════════════════════
-//  TRANSFER  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.updateTransferPreview = function() {
-  const fromId = document.getElementById('transfer-from')?.value;
-  const toId   = document.getElementById('transfer-to')?.value;
-  const amt    = parseFloat(document.getElementById('transfer-amount')?.value)||0;
-  const el     = document.getElementById('transfer-preview');
-  if (!el) return;
-  const fromA  = getData('accounts').find(a=>a.id===fromId);
-  const toA    = getData('accounts').find(a=>a.id===toId);
-  el.textContent = (fromA&&toA&&fromA.id!==toA.id&&amt>0)
-    ? `Moving $${fmtNum(amt)} from ${fromA.name} ($${fmtNum(fromA.balance)}) → ${toA.name} ($${fmtNum(toA.balance)})` : '';
-};
-
-window.doTransfer = function() {
-  const fromId = document.getElementById('transfer-from').value;
-  const toId   = document.getElementById('transfer-to').value;
-  const amount = parseFloat(document.getElementById('transfer-amount').value);
-  const note   = document.getElementById('transfer-note').value.trim() || 'Transfer';
-  if (!fromId||!toId)     { alert('Select both accounts.'); return; }
-  if (fromId===toId)      { alert('Accounts must be different.'); return; }
-  if (!amount||amount<=0) { alert('Enter a valid amount.'); return; }
-  const fi = getData('accounts').findIndex(a=>a.id===fromId);
-  const ti = getData('accounts').findIndex(a=>a.id===toId);
-  if (fi<0||ti<0) return;
-  if (getData('accounts')[fi].balance<amount && !confirm(`This will overdraw ${getData('accounts')[fi].name}. Continue?`)) return;
-
-  // Only update balances — do NOT log as income/expense so transfers don't skew stats/budgets
-  getData('accounts')[fi].balance -= amount;
-  getData('accounts')[ti].balance += amount;
-  setData('accounts', getData('accounts'));  // persist balance changes
-
-  // Log as neutral transfer — type:'transfer' is EXCLUDED from income/expense/budget calculations
-  const fromName = getData('accounts')[fi].name;
-  const toName   = getData('accounts')[ti].name;
-  const tx = {id:Date.now().toString(36)+Math.random().toString(36).slice(2),
-    type:'transfer', amount, desc: note || ('Transfer: '+fromName+' → '+toName),
-    acctId:fromId, toAcctId:toId, date:today(), cat:'🔄 Transfer'};
-  const _tftxs=getData('transactions'); _tftxs.push(tx); setData('transactions',_tftxs);
-
-  closeModal('transfer-modal');
-  document.getElementById('transfer-amount').value = '';
-  document.getElementById('transfer-note').value   = '';
-  renderFinancesScreen(); renderStats();
-  showToast(`Transferred $${fmtNum(amount)} from ${fromName} to ${toName} ✅`);
-};
-
-// ════════════════════════════════════════════════════
-//  BILLS  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.addBill = function() {
-  const name    = document.getElementById('bill-name').value.trim();
-  const amount  = parseFloat(document.getElementById('bill-amount').value)||0;
-  const date    = document.getElementById('bill-date').value;
-  const recur   = document.getElementById('bill-recur').value;
-  const endDate = document.getElementById('bill-end-date').value||null;
-  if (!name)  { alert('Please enter a bill name.'); return; }
-  if (!date)  { alert('Please select a due date.'); return; }
-  const bill = {id:Date.now().toString(36)+Math.random().toString(36).slice(2), name, amount, date, recur, endDate, paid:false};
-  const _bills=getData('bills'); _bills.push(bill); setData('bills',_bills);
-  closeModal('add-bill-modal');
-  document.getElementById('bill-name').value = '';
-  document.getElementById('bill-amount').value = '';
-  renderReminders(); updateNotifBadge();
-  showToast('Bill reminder saved ✅');
-};
-
-window.markBillPaid = async function(id) {
-  const bill = getData('bills').find(b=>b.id===id);
-  if (!bill) return;
-  const _mpb=getData('bills'); const _mpi=_mpb.findIndex(b=>b.id===id); if(_mpi>=0){_mpb[_mpi].paid=!bill.paid; setData('bills',_mpb);}
-  bill.paid = !bill.paid;
-  renderReminders(); updateNotifBadge();
-};
-
-window.endBill = async function(id) {
-  if (!confirm('Remove this bill reminder?')) return;
-  setData('bills', getData('bills').filter(_r => _r.id !== id));
-  getData('bills') = getData('bills').filter(b=>b.id!==id);
-  renderReminders(); updateNotifBadge();
-};
-
-// ════════════════════════════════════════════════════
-//  PAYDAYS  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.addPayday = function() {
-  const label  = document.getElementById('pay-label').value.trim() || 'Payday';
-  const amount = parseFloat(document.getElementById('pay-amount').value)||0;
-  const date   = document.getElementById('pay-date').value;
-  const freq   = document.getElementById('pay-freq').value;
-  const end    = document.getElementById('pay-end-date').value||null;
-  if (!date) { alert('Please select a date.'); return; }
-  const p = {id:Date.now().toString(36)+Math.random().toString(36).slice(2), label, amount, date, freq, endDate:end};
-  const _pays=getData('paydays'); _pays.push(p); setData('paydays',_pays);
-  closeModal('add-payday-modal');
-  document.getElementById('pay-label').value = '';
-  document.getElementById('pay-amount').value = '';
-  renderReminders();
-  showToast('Payday reminder saved ✅');
-};
-
-window.endPayday = async function(id) {
-  if (!confirm('Remove this payday reminder?')) return;
-  setData('paydays', getData('paydays').filter(_r => _r.id !== id));
-  getData('paydays') = getData('paydays').filter(p=>p.id!==id);
-  renderReminders();
-};
-
-// ════════════════════════════════════════════════════
-//  GOALS  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.addGoal = function() {
-  const name   = document.getElementById('goal-name').value.trim();
-  const type   = document.getElementById('goal-type').value;
-  const target = parseFloat(document.getElementById('goal-target').value)||0;
-  const start  = parseFloat(document.getElementById('goal-start').value)||0;
-  const acctId = document.getElementById('goal-acct-select').value||null;
-  const date   = document.getElementById('goal-date').value||null;
-  if (!name)          { alert('Please enter a goal name.'); return; }
-  if (!target||target<=0) { alert('Please enter a target amount.'); return; }
-  const g = {id:Date.now().toString(36)+Math.random().toString(36).slice(2), name, type, target, saved:start, acctId, date, met:false};
-  const _gls=getData('goals'); _gls.push(g); setData('goals',_gls);
-  closeModal('add-goal-modal');
-  document.getElementById('goal-name').value = '';
-  document.getElementById('goal-target').value = '';
-  document.getElementById('goal-start').value = '0';
-  document.getElementById('goal-date').value = '';
-  renderGoals();
-  showToast('Goal created 🎯');
-};
-
-window.contributeToGoal = function() {
-  const id     = document.getElementById('contrib-goal-select').value;
-  const amount = parseFloat(document.getElementById('contrib-amount').value)||0;
-  if (!id)            { alert('Create a goal first.'); return; }
-  if (!amount||amount<=0) { alert('Enter a valid amount.'); return; }
-  const g = getData('goals').find(x=>x.id===id);
-  if (!g) return;
-  const newSaved = Math.min(g.saved+amount, g.target);
-  const _cg=getData('goals'); const _cgi=_cg.findIndex(x=>x.id===id); if(_cgi>=0){_cg[_cgi].saved=newSaved; setData('goals',_cg);}
-  g.saved = newSaved;
-  closeModal('contribute-modal');
-  document.getElementById('contrib-amount').value = '';
-  renderGoals();
-  if (newSaved>=g.target) { sendNotification('Goal Reached! 🎉',g.name+' is fully funded!'); showToast('🎉 Goal fully funded!'); }
-  else showToast('+$'+fmtNum(amount)+' added to '+g.name);
-};
-
-window.openEditGoal = function(id) {
-  const g = getData('goals').find(x=>x.id===id);
-  if (!g) return;
-  document.getElementById('eg-id').value    = id;
-  document.getElementById('eg-name').value  = g.name;
-  document.getElementById('eg-type').value  = g.type;
-  document.getElementById('eg-target').value= g.target;
-  document.getElementById('eg-saved').value = g.saved;
-  document.getElementById('eg-date').value  = g.date||'';
-  openModal('edit-goal-modal');
-};
-
-window.saveGoalEdit = function() {
-  const id     = document.getElementById('eg-id').value;
-  const name   = document.getElementById('eg-name').value.trim();
-  const type   = document.getElementById('eg-type').value;
-  const target = parseFloat(document.getElementById('eg-target').value)||0;
-  const saved  = parseFloat(document.getElementById('eg-saved').value)||0;
-  const date   = document.getElementById('eg-date').value||null;
-  if (!name||!target) { alert('Fill in all required fields.'); return; }
-  const _sge=getData('goals'); const _sgei=_sge.findIndex(g=>g.id===id); if(_sgei>=0){Object.assign(_sge[_sgei],{name,type,target,saved:Math.min(saved,target),date}); setData('goals',_sge);}
-  closeModal('edit-goal-modal');
-  renderGoals();
-  showToast('Goal updated ✅');
-};
-
-window.deleteGoal = async function(id) {
-  if (!confirm('Delete this savings goal?')) return;
-  setData('goals', getData('goals').filter(_r => _r.id !== id));
-  setData('goals', getData('goals').filter(g=>g.id!==id));
-  renderGoals();
-};
-
-// ════════════════════════════════════════════════════
-//  BUDGETS  (Firestore-backed)
-// ════════════════════════════════════════════════════
-window.saveBudget = function() {
-  const amount = parseFloat(document.getElementById('budget-amount').value);
-  const period = document.getElementById('budget-period').value;
-  const cat    = document.getElementById('budget-cat').value;
-  if (!amount||amount<=0) { alert('Enter a valid budget amount.'); return; }
-  const key   = period+'|'+(cat||'__all__');
-  const existing = getData('budgets').find(b=>b.key===key);
-  const _ba=getData('budgets'); const _bei=_ba.findIndex(b=>b.key===key);
-  if(_bei>=0){_ba[_bei].amount=amount;}else{_ba.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),key,period,cat,amount});}
-  setData('budgets',_ba);
-  closeModal('budget-modal');
-  document.getElementById('budget-amount').value = '';
-  renderBudgets();
-  showToast('Budget saved ✅');
-};
-
-window.deleteBudget = async function(id) {
-  setData('budgets', getData('budgets').filter(_r => _r.id !== id));
-  setData('budgets', getData('budgets').filter(b=>b.id!==id));
-  renderBudgets();
-};
-
-// ════════════════════════════════════════════════════
-//  MUTUAL FINANCES — read partner data from Firestore
-// ════════════════════════════════════════════════════
-async function loadPartnerData() {
-  if (!mutualPartner) return null;
-  const [accounts,transactions,bills,paydays,goals] = await Promise.all([
-    getDataFor(mutualPartner,'accounts'),
-    getDataFor(mutualPartner,'transactions'),
-    getDataFor(mutualPartner,'bills'),
-    getDataFor(mutualPartner,'paydays'),
-    getDataFor(mutualPartner,'goals'),
-  ]);
-  return { accounts, transactions, bills, paydays, goals };
+  const keys=Object.keys(localStorage).filter(k=>k.startsWith('mf_'+currentUser+'_'));
+  keys.forEach(k=>localStorage.removeItem(k));
+  // Remove from users list
+  let users=getAllUsers(); delete users[currentUser]; saveAllUsers(users);
+  localStorage.removeItem('mf_active_session');
+  location.reload();
 }
 
 // ════════════════════════════════════════════════════
@@ -1557,13 +920,11 @@ async function loadPartnerData() {
 let incomeChart,spendingChart,pieChart,goalsChart,mutualChart;
 let currentStatTab='week';
 let currentMutualTab='week';
+let mutualPartner=null;
 
 function initApp(){
   setTodayDates();
-  if (mutualPartner) {
-    document.getElementById('mutual-nav-item').style.display='flex';
-    document.getElementById('um-mutual-link').style.display='flex';
-  }
+  checkMutualConnection();
   renderFinancesScreen();
   requestNotificationPermission();
   checkPendingConnectionRequests();
@@ -1571,9 +932,10 @@ function initApp(){
 }
 
 function setTodayDates(){
-  const t=new Date().toISOString().split('T')[0];
+  const today=new Date().toISOString().split('T')[0];
   ['income-date','exp-date','bill-date','pay-date','goal-date','bill-end-date','pay-end-date'].forEach(id=>{
-    const el=document.getElementById(id); if(el&&!el.value) el.value=t;
+    const el=document.getElementById(id);
+    if(el&&!el.value) el.value=today;
   });
 }
 
@@ -1581,44 +943,47 @@ function setTodayDates(){
 //  NOTIFICATIONS
 // ════════════════════════════════════════════════════
 function requestNotificationPermission(){
-  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
 }
 function sendNotification(title,body){
-  if('Notification' in window && Notification.permission==='granted')
-    try{ new Notification(title,{body,icon:'icon.png'}); }catch(e){}
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification(title,{body,icon:'icon.png'});
+  }
 }
 function updateNotifBadge(){
   const bills=getData('bills');
   const today=new Date(); today.setHours(0,0,0,0);
-  const dueSoon=bills.filter(b=>{
+  const pending=bills.filter(b=>{
     if(b.paid)return false;
     const diff=Math.ceil((new Date(b.date+'T00:00:00')-today)/86400000);
     return diff>=0&&diff<=7;
-  }).length;
-  const hasReq=window._pendingConnReq?1:0;
-  const total=dueSoon+hasReq;
+  });
+  const pending2=getShared('conn_request_for_'+currentUser);
+  const total=pending.length+(pending2?1:0);
   const badge=document.getElementById('notif-count');
   if(total>0){badge.textContent=total;badge.style.display='flex';}
-  else badge.style.display='none';
+  else{badge.style.display='none';}
 }
 
 // ════════════════════════════════════════════════════
-//  DROPDOWN TOGGLES
+//  DROPDOWN TOGGLES (bell & user menu)
 // ════════════════════════════════════════════════════
-window.toggleBell = function(){
+function toggleBell(){
   closePanels('bell-dropdown');
   const panel=document.getElementById('bell-dropdown');
   if(panel.classList.contains('open')){panel.classList.remove('open');return;}
   renderBellPanel();
   panel.classList.add('open');
-};
-window.toggleUserMenu = function(){
+}
+function toggleUserMenu(){
   closePanels('user-dropdown');
   const panel=document.getElementById('user-dropdown');
   if(panel.classList.contains('open')){panel.classList.remove('open');return;}
   panel.classList.add('open');
-};
-window.closeUserMenu = ()=>document.getElementById('user-dropdown').classList.remove('open');
+}
+function closeUserMenu(){ document.getElementById('user-dropdown').classList.remove('open'); }
 function closePanels(except){
   ['bell-dropdown','user-dropdown'].forEach(id=>{
     if(id!==except) document.getElementById(id).classList.remove('open');
@@ -1637,65 +1002,280 @@ function renderBellPanel(){
   const today=new Date();today.setHours(0,0,0,0);
   let html='<div style="font-weight:700;font-size:.9rem;padding:4px 4px 10px;border-bottom:1px solid var(--border);margin-bottom:8px">Upcoming Reminders</div>';
   let count=0;
-  if(window._pendingConnReq){
+
+  // Check pending connection request for this user
+  const pending=getShared('conn_request_for_'+currentUser);
+  if(pending){
     count++;
-    html+=`<div class="dropdown-item" onclick="openApproveModal('${window._pendingConnReq.from}');document.getElementById('bell-dropdown').classList.remove('open')">
-      🔔 <span><strong>@${escHtml(window._pendingConnReq.from)}</strong> wants to connect</span></div>`;
+    html+=`<div class="dropdown-item" onclick="openApproveModal('${pending.from}');document.getElementById('bell-dropdown').classList.remove('open')">
+      🔔 <span><strong>${pending.from}</strong> wants to connect</span>
+    </div>`;
   }
+
   bills.filter(b=>!b.paid).forEach(b=>{
     const diff=Math.ceil((new Date(b.date+'T00:00:00')-today)/86400000);
-    if(diff>=0&&diff<=14){count++;html+=`<div class="dropdown-item"><span>${diff<=3?'🔴':'🟡'}</span><span><strong>${escHtml(b.name)}</strong><br/><span style="font-size:.72rem;color:var(--text-secondary)">Due ${diff===0?'today':diff===1?'tomorrow':'in '+diff+' days'} — $${fmtNum(b.amount)}</span></span></div>`;}
+    if(diff>=0&&diff<=14){
+      count++;
+      html+=`<div class="dropdown-item">
+        <span>${diff<=3?'🔴':'🟡'}</span>
+        <span><strong>${escHtml(b.name)}</strong><br/><span style="font-size:.72rem;color:var(--text-secondary)">Due ${diff===0?'today':diff===1?'tomorrow':'in '+diff+' days'} — $${fmtNum(b.amount)}</span></span>
+      </div>`;
+    }
   });
   paydays.forEach(p=>{
     const diff=Math.ceil((new Date(p.date+'T00:00:00')-today)/86400000);
-    if(diff>=0&&diff<=7){count++;html+=`<div class="dropdown-item"><span>💰</span><span><strong>${escHtml(p.label)}</strong><br/><span style="font-size:.72rem;color:var(--text-secondary)">${diff===0?'Today!':'In '+diff+' days'} — +$${fmtNum(p.amount)}</span></span></div>`;}
+    if(diff>=0&&diff<=7){
+      count++;
+      html+=`<div class="dropdown-item">
+        <span>💰</span>
+        <span><strong>${escHtml(p.label)}</strong><br/><span style="font-size:.72rem;color:var(--text-secondary)">${diff===0?'Today!':'In '+diff+' days'} — +$${fmtNum(p.amount)}</span></span>
+      </div>`;
+    }
   });
-  if(count===0)html+='<div style="text-align:center;padding:1rem;font-size:.85rem;color:var(--text-muted)">No upcoming reminders 🎉</div>';
+  if(count===0) html+='<div style="text-align:center;padding:1rem;font-size:.85rem;color:var(--text-muted)">No upcoming reminders 🎉</div>';
   document.getElementById('bell-dropdown').innerHTML=html;
 }
 
 // ════════════════════════════════════════════════════
-//  MODALS
+//  MODAL SYSTEM (single open/close — no duplicates)
 // ════════════════════════════════════════════════════
-window.openModal = function(id){ populateSelects(); document.getElementById(id).classList.add('open'); };
-window.closeModal= function(id){ document.getElementById(id).classList.remove('open'); document.querySelectorAll('#'+id+' .auth-error').forEach(el=>el.textContent=''); };
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+function openModal(id){
+  populateSelects();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
+});
 
 function populateSelects(){
   const accounts=getData('accounts');
   const goals=getData('goals');
-  const opts=accounts.length?accounts.map(a=>`<option value="${a.id}">${escHtml(a.name)} ($${fmtNum(a.balance)})</option>`).join(''):'<option value="">— Add an account first —</option>';
-  ['income-acct-select','exp-acct-select','upd-acct-select','transfer-from','transfer-to','goal-acct-select'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
-  const goalOpts=goals.filter(g=>!g.met).length?goals.filter(g=>!g.met).map(g=>`<option value="${g.id}">${escHtml(g.name)} ($${fmtNum(g.saved)}/$${fmtNum(g.target)})</option>`).join(''):'<option value="">— Create a goal first —</option>';
-  const cg=document.getElementById('contrib-goal-select');if(cg)cg.innerHTML=goalOpts;
-  ['transfer-from','transfer-to','transfer-amount'].forEach(id=>{const el=document.getElementById(id);if(el){el.onchange=window.updateTransferPreview;el.oninput=window.updateTransferPreview;}});
+  const opts=accounts.length
+    ? accounts.map(a=>`<option value="${a.id}">${escHtml(a.name)} ($${fmtNum(a.balance)})</option>`).join('')
+    : '<option value="">— Add an account first —</option>';
+  ['income-acct-select','exp-acct-select','upd-acct-select','transfer-from','transfer-to','goal-acct-select'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.innerHTML=opts;
+  });
+  const goalOpts=goals.length
+    ? goals.map(g=>`<option value="${g.id}">${escHtml(g.name)} ($${fmtNum(g.saved)} / $${fmtNum(g.target)})</option>`).join('')
+    : '<option value="">— Create a goal first —</option>';
+  const cg=document.getElementById('contrib-goal-select'); if(cg) cg.innerHTML=goalOpts;
+  // Wire transfer preview update
+  ['transfer-from','transfer-to','transfer-amount'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.oninput=el.onchange=updateTransferPreview;
+  });
 }
 
 // ════════════════════════════════════════════════════
 //  SCREEN NAVIGATION
 // ════════════════════════════════════════════════════
 const screenTitles={finances:'My Finances',stats:'Finance Stats',reminders:'Financial Reminders',goals:'Personal Goals',mutual:'Mutual Finances'};
-window.switchScreen=function(name,el){
-  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+function switchScreen(name,el){
+  // Explicitly hide every screen — this is the key fix for screens showing behind each other
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active');
+    s.style.display='none';
+  });
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const scr=document.getElementById('screen-'+name);
-  if(scr){scr.style.display='block';scr.classList.add('active');}
-  if(el)el.classList.add('active');
+  if(scr){ scr.style.display='block'; scr.classList.add('active'); }
+  if(el) el.classList.add('active');
   document.getElementById('screen-title').textContent=screenTitles[name]||name;
   closePanels('');
-  if(name==='stats')renderStats();
-  if(name==='goals')renderGoals();
-  if(name==='reminders')renderReminders();
-  if(name==='mutual')renderMutualScreen();
-};
-window.switchToMutual=function(){window.switchScreen('mutual',document.getElementById('mutual-nav-item'));};
+  if(name==='stats') renderStats();
+  if(name==='goals') renderGoals();
+  if(name==='reminders') renderReminders();
+  if(name==='mutual') renderMutualScreen();
+}
+function switchToMutual(){ switchScreen('mutual',document.getElementById('mutual-nav-item')); }
 
 // ════════════════════════════════════════════════════
-//  FINANCES SCREEN
+//  ACCOUNTS
 // ════════════════════════════════════════════════════
 const acctColors={checking:'#2563eb',savings:'#10b981',investment:'#f59e0b',credit:'#ef4444',cash:'#8b5cf6',other:'#64748b'};
 const acctEmojis={checking:'🏦',savings:'💰',investment:'📈',credit:'💳',cash:'💵',other:'🗂️'};
 
+function addAccount(){
+  const name=document.getElementById('acct-name').value.trim();
+  const type=document.getElementById('acct-type').value;
+  const balance=parseFloat(document.getElementById('acct-balance').value)||0;
+  if(!name){alert('Please enter an account name.');return;}
+  const accounts=getData('accounts');
+  accounts.push({id:Date.now().toString(),name,type,balance});
+  setData('accounts',accounts);
+  closeModal('add-account-modal');
+  document.getElementById('acct-name').value='';
+  document.getElementById('acct-balance').value='';
+  renderFinancesScreen();
+}
+
+function updateBalance(){
+  const id=document.getElementById('upd-acct-select').value;
+  const balance=parseFloat(document.getElementById('upd-balance').value);
+  if(!id){alert('No accounts to update. Add an account first.');return;}
+  if(isNaN(balance)){alert('Please enter a valid amount.');return;}
+  const accounts=getData('accounts');
+  const idx=accounts.findIndex(a=>a.id===id);
+  if(idx>=0){accounts[idx].balance=balance;setData('accounts',accounts);}
+  closeModal('update-balance-modal');
+  document.getElementById('upd-balance').value='';
+  renderFinancesScreen();
+  renderStats();
+}
+
+function renderAccountsList(){
+  const accounts=getData('accounts');
+  const el=document.getElementById('accounts-list');
+  if(!accounts.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏦</div><p>No accounts yet.<br/>Tap "Add Account" to get started.</p></div>';return;}
+  el.innerHTML=accounts.map(a=>`
+    <div class="account-row">
+      <div class="account-icon" style="background:${acctColors[a.type]||'#2563eb'}18">${acctEmojis[a.type]||'🏦'}</div>
+      <div>
+        <div class="account-name">${escHtml(a.name)}</div>
+        <div class="account-type">${capitalize(a.type)}</div>
+      </div>
+      <div class="account-amount ${a.balance<0?'text-red':''}">$${fmtNum(a.balance)}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  INCOME & EXPENSES
+// ════════════════════════════════════════════════════
+function addIncome(){
+  const amount=parseFloat(document.getElementById('income-amount').value);
+  const desc=document.getElementById('income-desc').value.trim()||'Income';
+  const acctId=document.getElementById('income-acct-select').value;
+  const date=document.getElementById('income-date').value||today();
+  if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
+  if(!acctId){alert('Please add an account first.');return;}
+  const transactions=getData('transactions');
+  transactions.push({id:Date.now().toString(),type:'income',amount,desc,acctId,date,cat:'💵 Income'});
+  setData('transactions',transactions);
+  const accounts=getData('accounts');
+  const idx=accounts.findIndex(a=>a.id===acctId);
+  if(idx>=0){accounts[idx].balance+=amount;setData('accounts',accounts);}
+  closeModal('add-income-modal');
+  document.getElementById('income-amount').value='';
+  document.getElementById('income-desc').value='';
+  renderFinancesScreen();
+  sendNotification('Income Added','$'+fmtNum(amount)+' added — '+desc);
+}
+
+function editExpense(id){
+  const transactions=getData('transactions');
+  const t=transactions.find(tx=>tx.id===id);
+  if(!t||t.type!=='expense')return;
+  populateSelects();
+  document.getElementById('exp-modal-title').textContent='Edit Expense';
+  document.getElementById('exp-edit-id').value=id;
+  document.getElementById('exp-amount').value=t.amount;
+  document.getElementById('exp-desc').value=t.desc;
+  document.getElementById('exp-cat').value=t.cat;
+  document.getElementById('exp-acct-select').value=t.acctId;
+  document.getElementById('exp-date').value=t.date;
+  document.getElementById('exp-save-btn').textContent='Save Changes';
+  document.getElementById('add-expense-modal').classList.add('open');
+}
+
+function addExpense(){
+  // Reset to add mode then open
+  document.getElementById('exp-modal-title').textContent='Add Expense';
+  document.getElementById('exp-edit-id').value='';
+  document.getElementById('exp-save-btn').textContent='Add Expense';
+  openModal('add-expense-modal');
+}
+
+function saveExpense(){
+  const editId=document.getElementById('exp-edit-id').value;
+  const amount=parseFloat(document.getElementById('exp-amount').value);
+  const desc=document.getElementById('exp-desc').value.trim()||'Expense';
+  const cat=document.getElementById('exp-cat').value;
+  const acctId=document.getElementById('exp-acct-select').value;
+  const date=document.getElementById('exp-date').value||today();
+  if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
+  if(!acctId){alert('Please add an account first.');return;}
+  const transactions=getData('transactions');
+  const accounts=getData('accounts');
+  if(editId){
+    // Edit mode: reverse old amount, apply new
+    const oldIdx=transactions.findIndex(t=>t.id===editId);
+    if(oldIdx>=0){
+      const old=transactions[oldIdx];
+      // Reverse old balance change
+      const aidx=accounts.findIndex(a=>a.id===old.acctId);
+      if(aidx>=0){accounts[aidx].balance+=old.amount;}
+      // Apply new
+      const nidx=accounts.findIndex(a=>a.id===acctId);
+      if(nidx>=0){accounts[nidx].balance-=amount;}
+      transactions[oldIdx]={...old,amount,desc,cat,acctId,date};
+      setData('accounts',accounts);
+      setData('transactions',transactions);
+    }
+  } else {
+    transactions.push({id:Date.now().toString(),type:'expense',amount,desc,acctId,date,cat});
+    setData('transactions',transactions);
+    const idx=accounts.findIndex(a=>a.id===acctId);
+    if(idx>=0){accounts[idx].balance-=amount;setData('accounts',accounts);}
+  }
+  closeModal('add-expense-modal');
+  document.getElementById('exp-amount').value='';
+  document.getElementById('exp-desc').value='';
+  document.getElementById('exp-edit-id').value='';
+  document.getElementById('exp-modal-title').textContent='Add Expense';
+  document.getElementById('exp-save-btn').textContent='Add Expense';
+  renderFinancesScreen();
+  renderStats();
+}
+
+// ════════════════════════════════════════════════════
+//  TRANSFER FUNDS
+// ════════════════════════════════════════════════════
+function updateTransferPreview(){
+  const accounts=getData('accounts');
+  const fromId=document.getElementById('transfer-from')?.value;
+  const toId=document.getElementById('transfer-to')?.value;
+  const amt=parseFloat(document.getElementById('transfer-amount')?.value)||0;
+  const el=document.getElementById('transfer-preview');
+  if(!el)return;
+  const fromA=accounts.find(a=>a.id===fromId);
+  const toA=accounts.find(a=>a.id===toId);
+  if(fromA&&toA&&fromA.id!==toA.id&&amt>0)
+    el.textContent=`Moving $${fmtNum(amt)} from ${fromA.name} ($${fmtNum(fromA.balance)}) → ${toA.name} ($${fmtNum(toA.balance)})`;
+  else el.textContent='';
+}
+function doTransfer(){
+  const fromId=document.getElementById('transfer-from').value;
+  const toId=document.getElementById('transfer-to').value;
+  const amount=parseFloat(document.getElementById('transfer-amount').value);
+  const note=document.getElementById('transfer-note').value.trim()||'Transfer';
+  if(!fromId||!toId){alert('Select both accounts.');return;}
+  if(fromId===toId){alert('From and To accounts must be different.');return;}
+  if(!amount||amount<=0){alert('Enter a valid transfer amount.');return;}
+  const accounts=getData('accounts');
+  const fi=accounts.findIndex(a=>a.id===fromId);
+  const ti=accounts.findIndex(a=>a.id===toId);
+  if(fi<0||ti<0)return;
+  if(accounts[fi].balance<amount&&!confirm(`This will overdraw ${accounts[fi].name}. Continue?`))return;
+  accounts[fi].balance-=amount;
+  accounts[ti].balance+=amount;
+  setData('accounts',accounts);
+  // Log as transactions for history
+  const transactions=getData('transactions');
+  const stamp=Date.now().toString();
+  transactions.push({id:stamp+'a',type:'expense',amount,desc:`Transfer to ${accounts[ti].name}`,acctId:fromId,date:today(),cat:'🔄 Transfer'});
+  transactions.push({id:stamp+'b',type:'income', amount,desc:`Transfer from ${accounts[fi].name}`,acctId:toId,date:today(),cat:'🔄 Transfer'});
+  setData('transactions',transactions);
+  closeModal('transfer-modal');
+  document.getElementById('transfer-amount').value='';
+  document.getElementById('transfer-note').value='';
+  renderFinancesScreen();
+  showToast(`Transferred $${fmtNum(amount)} from ${accounts[fi].name} to ${accounts[ti].name}`);
+}
 function renderFinancesScreen(){
   const accounts=getData('accounts');
   const total=accounts.reduce((s,a)=>s+a.balance,0);
@@ -1706,246 +1286,1107 @@ function renderFinancesScreen(){
   renderIncomeChart();
   updateNotifBadge();
 }
-function renderAccountsList(){
-  const accounts=getData('accounts');
-  const el=document.getElementById('accounts-list');
-  if(!accounts.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏦</div><p>No accounts yet.</p></div>';return;}
-  el.innerHTML=accounts.map(a=>`<div class="account-row"><div class="account-icon" style="background:${acctColors[a.type]||'#2563eb'}18">${acctEmojis[a.type]||'🏦'}</div><div><div class="account-name">${escHtml(a.name)}</div><div class="account-type">${capitalize(a.type)}</div></div><div class="account-amount ${a.balance<0?'text-red':''}">$${fmtNum(a.balance)}</div></div>`).join('');
-}
+
 function renderRecentTransactions(){
-  const transactions=getData('transactions').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+  const transactions=getData('transactions').slice().reverse().slice(0,10);
   const el=document.getElementById('recent-transactions');
   if(!transactions.length){el.innerHTML='<div class="empty-state" style="padding:1rem 0"><p>No transactions yet.<br/>Tap "+ Add Expense" to log one.</p></div>';return;}
-  el.innerHTML=transactions.map(t=>`<div class="tx-row"><div class="tx-icon" style="background:${t.type==='income'?'#d1fae5':'#fee2e2'}">${t.cat?t.cat.split(' ')[0]:(t.type==='income'?'💵':'💸')}</div><div style="flex:1;min-width:0"><div class="tx-name">${escHtml(t.desc)}</div><div class="tx-cat">${t.cat||''} · ${fmtDate(t.date)}</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>${t.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${t.id}')">✏️</span>`:''}</div></div>`).join('');
+  el.innerHTML=transactions.map(t=>`
+    <div class="tx-row">
+      <div class="tx-icon" style="background:${t.type==='income'?'#d1fae5':'#fee2e2'}">
+        ${t.cat?t.cat.split(' ')[0]:(t.type==='income'?'💵':'💸')}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="tx-name">${escHtml(t.desc)}</div>
+        <div class="tx-cat">${t.cat||''} · ${fmtDate(t.date)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>
+        ${t.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${t.id}')" title="Edit">✏️</span>`:''}
+      </div>
+    </div>`).join('');
 }
+
 function renderIncomeChart(){
   const transactions=getData('transactions');
   const last6=getLast6Months();
-  const incomeData=last6.map(m=>transactions.filter(t=>t.type==='income'&&(t.date||'').startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
-  const expData=last6.map(m=>transactions.filter(t=>t.type==='expense'&&(t.date||'').startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
+  const incomeData=last6.map(m=>transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
+  const expData=last6.map(m=>transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
   const ctx=document.getElementById('income-chart').getContext('2d');
   if(incomeChart)incomeChart.destroy();
-  incomeChart=new Chart(ctx,{type:'bar',data:{labels:last6.map(m=>m.label),datasets:[{label:'Earned',data:incomeData,backgroundColor:'rgba(37,99,235,.75)',borderRadius:6,borderSkipped:false},{label:'Spent',data:expData,backgroundColor:'rgba(239,68,68,.5)',borderRadius:6,borderSkipped:false}]},options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:10}}}}}});
+  incomeChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:last6.map(m=>m.label),
+      datasets:[
+        {label:'Earned',data:incomeData,backgroundColor:'rgba(37,99,235,.75)',borderRadius:6,borderSkipped:false},
+        {label:'Spent',data:expData,backgroundColor:'rgba(239,68,68,.5)',borderRadius:6,borderSkipped:false}
+      ]
+    },
+    options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:10}}}}}
+  });
 }
 
 // ════════════════════════════════════════════════════
 //  STATS SCREEN
 // ════════════════════════════════════════════════════
-window.setStatTab=function(tab,el){
+function setStatTab(tab,el){
   currentStatTab=tab;
   document.querySelectorAll('#stats-tabs .tab').forEach(t=>t.classList.remove('active'));
   if(el)el.classList.add('active');
   renderStats();
-};
-function renderStats(){renderSpendingChart();renderPieChart();renderWeeklySummary();renderMonthlySummary();renderBudgets();renderCategoryBars();}
-function getSpendData(txs,tab){
-  const now=new Date();let labels,income,expense;
+}
+function renderStats(){
+  renderSpendingChart();
+  renderPieChart();
+  renderWeeklySummary();
+  renderMonthlySummary();
+  renderBudgets();
+  renderCategoryBars(); // keeps AI analysis section live
+}
+
+function getSpendData(user,tab){
+  const transactions=user?getDataFor(user,'transactions'):getData('transactions');
+  const now=new Date();
+  let labels,income,expense;
   if(tab==='week'){
     labels=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
-    income=labels.map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);const k=d.toISOString().split('T')[0];return txs.filter(t=>t.type==='income'&&t.date===k).reduce((s,t)=>s+t.amount,0);});
-    expense=labels.map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);const k=d.toISOString().split('T')[0];return txs.filter(t=>t.type==='expense'&&t.date===k).reduce((s,t)=>s+t.amount,0);});
+    const day=now.getDay();
+    const monday=new Date(now);monday.setDate(now.getDate()-(day===0?6:day-1));monday.setHours(0,0,0,0);
+    income=labels.map((_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);const key=d.toISOString().split('T')[0];return transactions.filter(t=>t.type==='income'&&t.date===key).reduce((s,t)=>s+t.amount,0);});
+    expense=labels.map((_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);const key=d.toISOString().split('T')[0];return transactions.filter(t=>t.type==='expense'&&t.date===key).reduce((s,t)=>s+t.amount,0);});
   } else if(tab==='month'){
     const last6=getLast6Months();labels=last6.map(m=>m.label);
-    income=last6.map(m=>txs.filter(t=>t.type==='income'&&(t.date||'').startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
-    expense=last6.map(m=>txs.filter(t=>t.type==='expense'&&(t.date||'').startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
+    income=last6.map(m=>transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
+    expense=last6.map(m=>transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
   } else {
     labels=Array.from({length:5},(_,i)=>String(now.getFullYear()-4+i));
-    income=labels.map(y=>txs.filter(t=>t.type==='income'&&(t.date||'').startsWith(y)).reduce((s,t)=>s+t.amount,0));
-    expense=labels.map(y=>txs.filter(t=>t.type==='expense'&&(t.date||'').startsWith(y)).reduce((s,t)=>s+t.amount,0));
+    income=labels.map(y=>transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(y)).reduce((s,t)=>s+t.amount,0));
+    expense=labels.map(y=>transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(y)).reduce((s,t)=>s+t.amount,0));
   }
   return{labels,income,expense};
 }
+
 function renderSpendingChart(){
-  const d=getSpendData(getData('transactions'),currentStatTab);
+  const d=getSpendData(null,currentStatTab);
   const ctx=document.getElementById('spending-chart').getContext('2d');
   if(spendingChart)spendingChart.destroy();
-  spendingChart=new Chart(ctx,{type:'line',data:{labels:d.labels,datasets:[{label:'Income',data:d.income,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#10b981'},{label:'Spending',data:d.expense,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#ef4444'}]},options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:11}}}}}});
+  spendingChart=new Chart(ctx,{
+    type:'line',
+    data:{labels:d.labels,datasets:[
+      {label:'Income',data:d.income,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#10b981'},
+      {label:'Spending',data:d.expense,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#ef4444'}
+    ]},
+    options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:11}}}}}
+  });
 }
+
 function renderPieChart(){
-  const accounts=getData('accounts').filter(a=>a.balance>0);
+  const accounts=getData('accounts');
   const ctx=document.getElementById('pie-chart').getContext('2d');
   if(pieChart)pieChart.destroy();
-  if(!accounts.length){document.getElementById('pie-legend').innerHTML='<p style="color:var(--text-muted);font-size:.82rem">No positive balances yet.</p>';return;}
-  const COLORS=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#84cc16'];
-  const total=accounts.reduce((s,a)=>s+a.balance,0);
-  pieChart=new Chart(ctx,{type:'doughnut',data:{labels:accounts.map(a=>a.name),datasets:[{data:accounts.map(a=>a.balance),backgroundColor:COLORS.slice(0,accounts.length),borderWidth:0,hoverOffset:6}]},options:{cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' $'+fmtNum(c.parsed)}}},responsive:true,maintainAspectRatio:false}});
-  document.getElementById('pie-legend').innerHTML=accounts.map((a,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><span style="width:10px;height:10px;border-radius:2px;background:${COLORS[i]};flex-shrink:0"></span><span style="color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(a.name)}</span><span style="font-weight:700">$${fmtNum(a.balance)}</span><span style="color:var(--text-muted);font-size:.72rem">(${total>0?Math.round(a.balance/total*100):0}%)</span></div>`).join('');
+  const pos=accounts.filter(a=>a.balance>0);
+  if(!pos.length){ctx.clearRect(0,0,200,200);document.getElementById('pie-legend').innerHTML='<p class="fs-sm">No positive balances yet.</p>';return;}
+  const colors=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#84cc16'];
+  const total=pos.reduce((s,a)=>s+a.balance,0);
+  pieChart=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:pos.map(a=>a.name),datasets:[{data:pos.map(a=>a.balance),backgroundColor:colors.slice(0,pos.length),borderWidth:0,hoverOffset:6}]},
+    options:{cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` $${fmtNum(c.parsed)}`}}},responsive:true,maintainAspectRatio:false}
+  });
+  document.getElementById('pie-legend').innerHTML=pos.map((a,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0"></span>
+      <span style="color:var(--text-secondary);flex:1">${escHtml(a.name)}</span>
+      <span style="font-weight:600">${total>0?Math.round(a.balance/total*100):0}%</span>
+    </div>`).join('');
 }
+
 function getSummaryFor(period){
-  const txs=getData('transactions');const now=new Date();let f;
-  if(period==='week'){const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);f=txs.filter(t=>{const d=new Date((t.date||'')+'T00:00:00');return d>=mon&&d<=now;});}
-  else{const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');f=txs.filter(t=>(t.date||'').startsWith(mk));}
-  const income=f.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const expense=f.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  return{income,expense,net:income-expense};
+  const transactions=getData('transactions');
+  const now=new Date();
+  let filtered;
+  if(period==='week'){
+    const day=now.getDay(); const monday=new Date(now); monday.setDate(now.getDate()-(day===0?6:day-1)); monday.setHours(0,0,0,0);
+    filtered=transactions.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=monday&&d<=now;});
+  } else {
+    filtered=transactions.filter(t=>t.date&&t.date.startsWith(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')));
+  }
+  const income=filtered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense=filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const net=income-expense;
+  return{income,expense,net};
 }
-function summaryHTML(s){return`<div class="stat-grid"><div class="stat-mini"><div class="stat-mini-label">Income</div><div class="stat-mini-val text-green">$${fmtNum(s.income)}</div></div><div class="stat-mini"><div class="stat-mini-label">Spent</div><div class="stat-mini-val text-red">$${fmtNum(s.expense)}</div></div><div class="stat-mini"><div class="stat-mini-label">Net</div><div class="stat-mini-val ${s.net>=0?'text-green':'text-red'}">$${fmtNum(Math.abs(s.net))}</div></div></div>`;}
-function renderWeeklySummary(){document.getElementById('weekly-summary-content').innerHTML=summaryHTML(getSummaryFor('week'));}
-function renderMonthlySummary(){document.getElementById('monthly-summary-content').innerHTML=summaryHTML(getSummaryFor('month'));}
+
+function summaryHTML(s){
+  return`<div class="stat-grid">
+    <div class="stat-mini"><div class="stat-mini-label">Income</div><div class="stat-mini-val text-green">$${fmtNum(s.income)}</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Spent</div><div class="stat-mini-val text-red">$${fmtNum(s.expense)}</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Net</div><div class="stat-mini-val ${s.net>=0?'text-green':'text-red'}">$${fmtNum(Math.abs(s.net))}</div></div>
+  </div>`;
+}
+
+function renderWeeklySummary(){
+  document.getElementById('weekly-summary-content').innerHTML=summaryHTML(getSummaryFor('week'));
+}
+function renderMonthlySummary(){
+  document.getElementById('monthly-summary-content').innerHTML=summaryHTML(getSummaryFor('month'));
+}
 
 // ════════════════════════════════════════════════════
 //  BUDGET TRACKER
 // ════════════════════════════════════════════════════
+function saveBudget(){
+  const amount=parseFloat(document.getElementById('budget-amount').value);
+  const period=document.getElementById('budget-period').value;
+  const cat=document.getElementById('budget-cat').value;
+  if(!amount||amount<=0){alert('Please enter a valid budget amount.');return;}
+  const budgets=getData('budgets');
+  // Update if same period+cat exists, else push
+  const key=period+'|'+(cat||'__all__');
+  const idx=budgets.findIndex(b=>b.key===key);
+  const entry={id:idx>=0?budgets[idx].id:Date.now().toString(),key,period,cat,amount};
+  if(idx>=0)budgets[idx]=entry; else budgets.push(entry);
+  setData('budgets',budgets);
+  closeModal('budget-modal');
+  document.getElementById('budget-amount').value='';
+  renderBudgets();
+  showToast('Budget saved ✅');
+}
+
+function deleteBudget(id){
+  setData('budgets',getData('budgets').filter(b=>b.id!==id));
+  renderBudgets();
+}
+
 function renderBudgets(){
-  const budgets=getData('budgets');const transactions=getData('transactions');
-  const el=document.getElementById('budget-list');if(!el)return;
-  if(!budgets.length){el.innerHTML='<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">No budgets yet. Tap "+ Add Budget" to set a spending limit.</div>';return;}
+  const budgets=getData('budgets');
+  const transactions=getData('transactions');
+  const el=document.getElementById('budget-list');
+  if(!el)return;
+  if(!budgets.length){
+    el.innerHTML='<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">No budgets set yet. Tap "+ Add Budget" to set spending limits.</div>';
+    return;
+  }
   const now=new Date();
   el.innerHTML=budgets.map(b=>{
-    let f=transactions.filter(t=>t.type==='expense');
-    if(b.cat)f=f.filter(t=>t.cat===b.cat);
-    if(b.period==='weekly'){const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);f=f.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=mon&&d<=now;});}
-    else if(b.period==='monthly'){const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');f=f.filter(t=>(t.date||'').startsWith(mk));}
-    else f=f.filter(t=>(t.date||'').startsWith(now.getFullYear().toString()));
-    const spent=f.reduce((s,t)=>s+t.amount,0);
+    // Calculate current spend for this period and category
+    let filtered=transactions.filter(t=>t.type==='expense');
+    if(b.cat)filtered=filtered.filter(t=>t.cat===b.cat);
+    if(b.period==='weekly'){
+      const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
+      filtered=filtered.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=mon&&d<=now;});
+    } else if(b.period==='monthly'){
+      const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+      filtered=filtered.filter(t=>(t.date||'').startsWith(mk));
+    } else {
+      filtered=filtered.filter(t=>(t.date||'').startsWith(now.getFullYear().toString()));
+    }
+    const spent=filtered.reduce((s,t)=>s+t.amount,0);
     const pct=b.amount>0?Math.min(Math.round(spent/b.amount*100),100):0;
     const over=spent>b.amount;
     const barColor=pct>=90?'#dc2626':pct>=70?'#b45309':'#047857';
-    const pl={weekly:'Weekly',monthly:'Monthly',yearly:'Yearly'}[b.period]||b.period;
-    return`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><div><span style="font-size:.88rem;font-weight:600">${b.cat||'All Spending'}</span><span style="font-size:.72rem;color:var(--text-secondary);margin-left:6px">${pl}</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:.82rem;font-weight:700;color:${over?'var(--red)':'var(--text-primary)'}">$${fmtNum(spent)} / $${fmtNum(b.amount)}</span><span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBudget('${b.id}')">✕</span></div></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${barColor}"></div></div><div style="display:flex;justify-content:space-between;font-size:.72rem;margin-top:3px"><span style="color:${over?'var(--red)':'var(--text-secondary)'}">${over?`⚠️ Over by $${fmtNum(spent-b.amount)}`:`$${fmtNum(Math.max(b.amount-spent,0))} remaining`}</span><span style="color:var(--text-secondary)">${pct}% used</span></div></div>`;
+    const periodLabel={weekly:'Weekly',monthly:'Monthly',yearly:'Yearly'}[b.period]||b.period;
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div>
+          <span style="font-size:.88rem;font-weight:600">${b.cat||'All Spending'}</span>
+          <span style="font-size:.72rem;color:var(--text-secondary);margin-left:6px">${periodLabel}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:.82rem;font-weight:700;color:${over?'var(--red)':'var(--text-primary)'}">$${fmtNum(spent)} / $${fmtNum(b.amount)}</span>
+          <span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBudget('${b.id}')">✕</span>
+        </div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-top:3px">
+        <span style="color:${over?'var(--red)':'var(--text-secondary)'}">
+          ${over?`⚠️ Over budget by $${fmtNum(spent-b.amount)}`:`$${fmtNum(Math.max(b.amount-spent,0))} remaining`}
+        </span>
+        <span style="color:var(--text-secondary)">${pct}% used</span>
+      </div>
+    </div>`;
   }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
 }
+function addBill(){
+  const name=document.getElementById('bill-name').value.trim();
+  const amount=parseFloat(document.getElementById('bill-amount').value)||0;
+  const date=document.getElementById('bill-date').value;
+  const recur=document.getElementById('bill-recur').value;
+  const endDate=document.getElementById('bill-end-date').value||null;
+  if(!name){alert('Please enter a bill name.');return;}
+  if(!date){alert('Please select a due date.');return;}
+  const bills=getData('bills');
+  bills.push({id:Date.now().toString(),name,amount,date,recur,endDate,paid:false});
+  setData('bills',bills);
+  closeModal('add-bill-modal');
+  document.getElementById('bill-name').value='';
+  document.getElementById('bill-amount').value='';
+  renderReminders();
+  updateNotifBadge();
+  sendNotification('Bill Reminder Added',name+' added — due '+fmtDateLong(date));
+}
 
-// ════════════════════════════════════════════════════
-//  REMINDERS SCREEN
-// ════════════════════════════════════════════════════
+function addPayday(){
+  const label=document.getElementById('pay-label').value.trim()||'Payday';
+  const amount=parseFloat(document.getElementById('pay-amount').value)||0;
+  const date=document.getElementById('pay-date').value;
+  const freq=document.getElementById('pay-freq').value;
+  const endDate=document.getElementById('pay-end-date').value||null;
+  if(!date){alert('Please select a date.');return;}
+  const paydays=getData('paydays');
+  paydays.push({id:Date.now().toString(),label,amount,date,freq,endDate});
+  setData('paydays',paydays);
+  closeModal('add-payday-modal');
+  document.getElementById('pay-label').value='';
+  document.getElementById('pay-amount').value='';
+  renderReminders();
+}
+
+function markBillPaid(id){
+  const bills=getData('bills');
+  const idx=bills.findIndex(b=>b.id===id);
+  if(idx>=0){bills[idx].paid=!bills[idx].paid;setData('bills',bills);}
+  renderReminders();
+  updateNotifBadge();
+}
+function deleteBill(id){setData('bills',getData('bills').filter(b=>b.id!==id));renderReminders();updateNotifBadge();}
+function deletePayday(id){setData('paydays',getData('paydays').filter(p=>p.id!==id));renderReminders();}
+
 function renderReminders(){
-  const bills=getData('bills');const paydays=getData('paydays');
+  const bills=getData('bills');
+  const paydays=getData('paydays');
   const today=new Date();today.setHours(0,0,0,0);
-  const pending=bills.filter(b=>!b.paid).length;
-  document.getElementById('bills-count').textContent=pending+' pending';
+  const pending=bills.filter(b=>!b.paid);
+  document.getElementById('bills-count').textContent=pending.length+' pending';
   const bEl=document.getElementById('bills-list');
   if(!bills.length){bEl.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>No bills added yet.</p></div>';}
-  else{bEl.innerHTML=bills.map(b=>{
-    const diff=Math.ceil((new Date(b.date+'T00:00:00')-today)/86400000);
-    const over=diff<0&&!b.paid;const soon=diff>=0&&diff<=7&&!b.paid;
-    const dot=b.paid?'var(--green)':over?'var(--red)':soon?'var(--gold)':'var(--accent)';
-    const freq={once:'One-time',weekly:'Weekly',monthly:'Monthly',yearly:'Yearly'}[b.recur]||b.recur;
-    return`<div class="reminder-row" style="${b.paid?'opacity:.5':''}"><div class="reminder-dot" style="background:${dot}"></div><div class="reminder-info"><div class="reminder-name">${escHtml(b.name)}${soon&&!b.paid?'<span class="due-soon">Due soon</span>':''}${over?'<span class="due-soon" style="color:var(--red)">Overdue</span>':''}</div><div class="reminder-date">${fmtDateLong(b.date)} · ${freq}${b.endDate?' · Ends '+fmtDateLong(b.endDate):''}</div></div><div style="text-align:right;flex-shrink:0"><div class="reminder-amount">$${fmtNum(b.amount)}</div><div style="display:flex;gap:8px;margin-top:4px;justify-content:flex-end"><span style="font-size:.72rem;cursor:pointer;color:var(--green)" onclick="markBillPaid('${b.id}')">${b.paid?'↩️ Undo':'✅ Paid'}</span><span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="endBill('${b.id}')">🗑️ End</span></div></div></div>`;
-  }).join('');}
+  else{
+    bEl.innerHTML=bills.map(b=>{
+      const due=new Date(b.date+'T00:00:00');
+      const diff=Math.ceil((due-today)/86400000);
+      const dueSoon=diff>=0&&diff<=7&&!b.paid;
+      const overdue=diff<0&&!b.paid;
+      const freqLabel=b.recur==='once'?'One-time':b.recur==='weekly'?'Weekly':b.recur==='monthly'?'Monthly':'Yearly';
+      const endLabel=b.endDate?` · Ends ${fmtDateLong(b.endDate)}`:'';
+      return`<div class="reminder-row" style="${b.paid?'opacity:.5':''}">
+        <div class="reminder-dot" style="background:${b.paid?'var(--green)':overdue?'var(--red)':dueSoon?'var(--gold)':'var(--accent)'}"></div>
+        <div class="reminder-info">
+          <div class="reminder-name">${escHtml(b.name)}${dueSoon&&!b.paid?'<span class="due-soon">Due soon</span>':''}${overdue?'<span class="due-soon" style="color:var(--red)">Overdue</span>':''}</div>
+          <div class="reminder-date">${fmtDateLong(b.date)} · ${freqLabel}${endLabel}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="reminder-amount">$${fmtNum(b.amount)}</div>
+          <div style="display:flex;gap:8px;margin-top:4px;justify-content:flex-end">
+            <span style="font-size:.72rem;cursor:pointer;color:var(--green)" onclick="markBillPaid('${b.id}')">${b.paid?'↩️ Undo':'✅ Paid'}</span>
+            <span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBill('${b.id}')">🗑️ End</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
   const pEl=document.getElementById('paydays-list');
   if(!paydays.length){pEl.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><p>No paydays set yet.</p></div>';}
-  else{pEl.innerHTML=paydays.map(p=>{
-    const diff=Math.ceil((new Date(p.date+'T00:00:00')-today)/86400000);
-    const freq={weekly:'Weekly',biweekly:'Bi-weekly',semimonthly:'Semi-monthly',monthly:'Monthly'}[p.freq]||p.freq;
-    return`<div class="reminder-row"><div class="reminder-dot" style="background:var(--green)"></div><div class="reminder-info"><div class="reminder-name">💰 ${escHtml(p.label)}</div><div class="reminder-date">${fmtDateLong(p.date)} · ${freq}${p.endDate?' · Ends '+fmtDateLong(p.endDate):''}</div><div class="reminder-date">${diff>=0?'In '+diff+' day'+(diff===1?'':'s'):'Past due'}</div></div><div style="text-align:right;flex-shrink:0"><div class="reminder-amount text-green">+$${fmtNum(p.amount)}</div><div style="display:flex;gap:8px;margin-top:4px;justify-content:flex-end"><span style="font-size:.72rem;cursor:pointer;color:var(--accent)" onclick="openModal('add-income-modal')">💵 Log</span><span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="endPayday('${p.id}')">🗑️ End</span></div></div></div>`;
-  }).join('');}
+  else{
+    pEl.innerHTML=paydays.map(p=>{
+      const diff=Math.ceil((new Date(p.date+'T00:00:00')-today)/86400000);
+      const freqLabels={weekly:'Weekly',biweekly:'Bi-weekly',semimonthly:'Semi-monthly',monthly:'Monthly'};
+      const endLabel=p.endDate?` · Ends ${fmtDateLong(p.endDate)}`:'';
+      return`<div class="reminder-row">
+        <div class="reminder-dot" style="background:var(--green)"></div>
+        <div class="reminder-info">
+          <div class="reminder-name">💰 ${escHtml(p.label)}</div>
+          <div class="reminder-date">${fmtDateLong(p.date)} · ${freqLabels[p.freq]||p.freq}${endLabel}</div>
+          <div class="reminder-date">${diff>=0?'In '+diff+' day'+(diff===1?'':'s'):'Past due'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="reminder-amount text-green">+$${fmtNum(p.amount)}</div>
+          <div style="display:flex;gap:8px;margin-top:4px;justify-content:flex-end">
+            <span style="font-size:.72rem;cursor:pointer;color:var(--accent)" onclick="openModal('add-income-modal')" title="Log this income">💵 Log</span>
+            <span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deletePayday('${p.id}')">🗑️ End</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 // ════════════════════════════════════════════════════
-//  GOALS SCREEN
+//  SAVINGS GOALS
 // ════════════════════════════════════════════════════
+function addGoal(){
+  const name=document.getElementById('goal-name').value.trim();
+  const type=document.getElementById('goal-type').value;
+  const target=parseFloat(document.getElementById('goal-target').value)||0;
+  const start=parseFloat(document.getElementById('goal-start').value)||0;
+  const acctId=document.getElementById('goal-acct-select').value||null;
+  const date=document.getElementById('goal-date').value||null;
+  if(!name){alert('Please enter a goal name.');return;}
+  if(!target||target<=0){alert('Please enter a target amount.');return;}
+  const goals=getData('goals');
+  goals.push({id:Date.now().toString(),name,type,target,saved:start,acctId,date,met:false});
+  setData('goals',goals);
+  closeModal('add-goal-modal');
+  document.getElementById('goal-name').value='';
+  document.getElementById('goal-target').value='';
+  document.getElementById('goal-start').value='0';
+  document.getElementById('goal-date').value='';
+  renderGoals();
+}
+
+function openEditGoal(id){
+  const goals=getData('goals');
+  const g=goals.find(x=>x.id===id);
+  if(!g)return;
+  document.getElementById('eg-id').value=id;
+  document.getElementById('eg-name').value=g.name;
+  document.getElementById('eg-type').value=g.type;
+  document.getElementById('eg-target').value=g.target;
+  document.getElementById('eg-saved').value=g.saved;
+  document.getElementById('eg-date').value=g.date||'';
+  openModal('edit-goal-modal');
+}
+
+function saveGoalEdit(){
+  const id=document.getElementById('eg-id').value;
+  const name=document.getElementById('eg-name').value.trim();
+  const type=document.getElementById('eg-type').value;
+  const target=parseFloat(document.getElementById('eg-target').value)||0;
+  const saved=parseFloat(document.getElementById('eg-saved').value)||0;
+  const date=document.getElementById('eg-date').value||null;
+  if(!name||!target){alert('Please fill in all required fields.');return;}
+  const goals=getData('goals');
+  const idx=goals.findIndex(g=>g.id===id);
+  if(idx>=0){goals[idx]={...goals[idx],name,type,target,saved:Math.min(saved,target),date};}
+  setData('goals',goals);
+  closeModal('edit-goal-modal');
+  renderGoals();
+  showToast('Goal updated ✅');
+}
+
+function contributeToGoal(){
+  const id=document.getElementById('contrib-goal-select').value;
+  const amount=parseFloat(document.getElementById('contrib-amount').value)||0;
+  if(!id){alert('Please create a goal first.');return;}
+  if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
+  const goals=getData('goals');
+  const idx=goals.findIndex(g=>g.id===id);
+  if(idx>=0){goals[idx].saved=Math.min(goals[idx].saved+amount,goals[idx].target);setData('goals',goals);}
+  closeModal('contribute-modal');
+  document.getElementById('contrib-amount').value='';
+  renderGoals();
+  const g=goals[idx];
+  if(g&&g.saved>=g.target) sendNotification('Goal Reached! 🎉',g.name+' is fully funded!');
+}
+
+function deleteGoal(id){
+  if(!confirm('Delete this savings goal?'))return;
+  setData('goals',getData('goals').filter(g=>g.id!==id));
+  renderGoals();
+}
+
 function renderGoals(){
-  const goals=getData('goals');const accounts=getData('accounts');
+  const goals=getData('goals');
+  const accounts=getData('accounts');
   const el=document.getElementById('goals-list');
   const overview=document.getElementById('goals-overview');
   const usageCard=document.getElementById('acct-usage-card');
-  if(!goals.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🎯</div><p>No goals yet.<br/>Create an envelope to start saving.</p></div>';overview.style.display='none';if(usageCard)usageCard.style.display='none';return;}
+  if(!goals.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">🎯</div><p>No goals yet.<br/>Create an envelope to start saving.</p></div>';
+    overview.style.display='none';
+    usageCard.style.display='none';
+    return;
+  }
   overview.style.display='block';
   renderGoalsChart(goals);
-  if(usageCard)renderAccountUsageChart(goals,accounts);
+  renderAccountUsageChart(goals,accounts);
   el.innerHTML=goals.map(g=>{
     const pct=g.target>0?Math.min(Math.round(g.saved/g.target*100),100):0;
-    const rem=Math.max(g.target-g.saved,0);
+    const remaining=Math.max(g.target-g.saved,0);
     const pClass=pct>=100?'green':pct>=60?'':'gold';
     const emoji=(g.type||'').split(' ')[0];
-    const dL=g.date?Math.ceil((new Date(g.date+'T00:00:00')-new Date())/86400000):null;
+    const daysLeft=g.date?Math.ceil((new Date(g.date+'T00:00:00')-new Date())/86400000):null;
     const linkedAcct=g.acctId?accounts.find(a=>a.id===g.acctId):null;
-    return`<div class="envelope"><div class="envelope-top"><span class="envelope-icon">${emoji}</span><div style="flex:1;min-width:0"><div class="envelope-name">${escHtml(g.name)}</div><div class="envelope-amounts">$${fmtNum(g.saved)} saved · $${fmtNum(rem)} to go${g.date?' · '+(dL>0?dL+' days left':'Past target date'):''}</div>${linkedAcct?`<div style="font-size:.72rem;color:var(--accent);margin-top:2px">🏦 ${escHtml(linkedAcct.name)}</div>`:''}</div><div style="text-align:right;flex-shrink:0"><div class="envelope-pct">${pct}%</div></div></div><div class="progress-track"><div class="progress-fill ${pClass}" style="width:${pct}%"></div></div><div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-top:4px"><span>$${fmtNum(g.saved)}</span><span>$${fmtNum(g.target)}</span></div><div style="display:flex;gap:8px;margin-top:8px"><span style="font-size:.72rem;cursor:pointer;color:var(--accent);background:#dbeafe;padding:3px 8px;border-radius:6px" onclick="openEditGoal('${g.id}')">✏️ Edit</span><span style="font-size:.72rem;cursor:pointer;color:var(--red);background:#fee2e2;padding:3px 8px;border-radius:6px" onclick="deleteGoal('${g.id}')">🗑️ Delete</span></div></div>`;
+    return`<div class="envelope">
+      <div class="envelope-top">
+        <span class="envelope-icon">${emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div class="envelope-name">${escHtml(g.name)}</div>
+          <div class="envelope-amounts">$${fmtNum(g.saved)} saved · $${fmtNum(remaining)} to go${g.date?' · '+(daysLeft>0?daysLeft+' days left':'Past target date'):''}
+          </div>
+          ${linkedAcct?`<div style="font-size:.72rem;color:var(--accent);margin-top:2px">🏦 Linked: ${escHtml(linkedAcct.name)}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="envelope-pct">${pct}%</div>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pClass}" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-top:4px">
+        <span>$${fmtNum(g.saved)}</span><span>Goal: $${fmtNum(g.target)}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <span style="font-size:.72rem;cursor:pointer;color:var(--accent);background:#dbeafe;padding:3px 8px;border-radius:6px" onclick="openEditGoal('${g.id}')">✏️ Edit</span>
+        <span style="font-size:.72rem;cursor:pointer;color:var(--red);background:#fee2e2;padding:3px 8px;border-radius:6px" onclick="deleteGoal('${g.id}')">🗑️ Delete</span>
+      </div>
+    </div>`;
   }).join('');
 }
-function renderGoalsChart(goals){
-  const ctx=document.getElementById('goals-chart').getContext('2d');
-  if(goalsChart)goalsChart.destroy();
-  const colors=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
-  goalsChart=new Chart(ctx,{type:'bar',data:{labels:goals.map(g=>g.name.length>12?g.name.slice(0,12)+'…':g.name),datasets:[{label:'Saved',data:goals.map(g=>g.saved),backgroundColor:colors,borderRadius:6,borderSkipped:false},{label:'Remaining',data:goals.map(g=>Math.max(g.target-g.saved,0)),backgroundColor:'rgba(0,0,0,.07)',borderRadius:6,borderSkipped:false}]},options:{...chartDefaults(),scales:{x:{stacked:true,ticks:{color:'#64748b',font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+fmtNum(v)},grid:{color:'rgba(0,0,0,.06)'}}},plugins:{legend:{display:false}}}});
-}
+
 function renderAccountUsageChart(goals,accounts){
   const usageCard=document.getElementById('acct-usage-card');
   const usageList=document.getElementById('acct-usage-list');
+  // Group goal savings by linked account
   const byAcct={};
-  goals.forEach(g=>{if(g.acctId&&g.saved>0)byAcct[g.acctId]=(byAcct[g.acctId]||0)+g.saved;});
+  goals.forEach(g=>{
+    if(g.acctId&&g.saved>0){
+      byAcct[g.acctId]=(byAcct[g.acctId]||0)+g.saved;
+    }
+  });
   if(!Object.keys(byAcct).length){usageCard.style.display='none';return;}
   usageCard.style.display='block';
   const COLORS=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
   usageList.innerHTML=Object.entries(byAcct).map(([acctId,totalSaved],i)=>{
-    const acct=accounts.find(a=>a.id===acctId);if(!acct)return'';
+    const acct=accounts.find(a=>a.id===acctId);
+    if(!acct)return'';
     const pct=acct.balance+totalSaved>0?Math.min(Math.round(totalSaved/(acct.balance+totalSaved)*100),100):0;
     const color=COLORS[i%COLORS.length];
+    // Goals linked to this account
     const linked=goals.filter(g=>g.acctId===acctId&&g.saved>0);
-    return`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:.88rem;font-weight:600">🏦 ${escHtml(acct.name)}</div><div style="font-size:.82rem;font-weight:700;color:${color}">$${fmtNum(totalSaved)} in goals (${pct}%)</div></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div><div style="font-size:.72rem;color:var(--text-secondary);margin-top:3px">Balance: $${fmtNum(acct.balance)} · Allocated: $${fmtNum(totalSaved)}</div><div style="margin-top:6px;padding:6px 10px;background:#f8faff;border-radius:8px">${linked.map(g=>`<div style="display:flex;justify-content:space-between;font-size:.75rem;padding:2px 0"><span>${(g.type||'').split(' ')[0]} ${escHtml(g.name)}</span><span style="font-weight:600;color:${color}">$${fmtNum(g.saved)} / $${fmtNum(g.target)}</span></div>`).join('')}</div></div>`;
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:.88rem;font-weight:600">🏦 ${escHtml(acct.name)}</div>
+        <div style="font-size:.82rem;font-weight:700;color:${color}">$${fmtNum(totalSaved)} in goals (${pct}%)</div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-secondary);margin-top:3px">Account balance: $${fmtNum(acct.balance)} · Goals allocated: $${fmtNum(totalSaved)}</div>
+      <div style="margin-top:6px;padding:6px 10px;background:#f8faff;border-radius:8px">
+        ${linked.map(g=>`<div style="display:flex;justify-content:space-between;font-size:.75rem;padding:2px 0">
+          <span>${(g.type||'').split(' ')[0]} ${escHtml(g.name)}</span>
+          <span style="font-weight:600;color:${color}">$${fmtNum(g.saved)} / $${fmtNum(g.target)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
   }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
+}
+
+function renderGoalsChart(goals){
+  const ctx=document.getElementById('goals-chart').getContext('2d');
+  if(goalsChart)goalsChart.destroy();
+  const colors=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
+  goalsChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:goals.map(g=>g.name.length>12?g.name.slice(0,12)+'…':g.name),
+      datasets:[
+        {label:'Saved',data:goals.map(g=>g.saved),backgroundColor:colors,borderRadius:6,borderSkipped:false},
+        {label:'Remaining',data:goals.map(g=>Math.max(g.target-g.saved,0)),backgroundColor:'rgba(0,0,0,.07)',borderRadius:6,borderSkipped:false}
+      ]
+    },
+    options:{...chartDefaults(),scales:{x:{stacked:true,ticks:{color:'#64748b',font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+fmtNum(v)},grid:{color:'rgba(0,0,0,.06)'}}},plugins:{legend:{display:false}}}
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  USER ACCOUNT MANAGEMENT
+// ════════════════════════════════════════════════════
+function changePassword(){
+  const cur=document.getElementById('cp-current').value;
+  const nw=document.getElementById('cp-new').value;
+  const conf=document.getElementById('cp-confirm').value;
+  const err=document.getElementById('cp-error');
+  const users=getAllUsers();
+  if(users[currentUser].password!==cur){err.textContent='Current password is incorrect.';return;}
+  if(nw.length<4){err.textContent='New password must be at least 4 characters.';return;}
+  if(nw!==conf){err.textContent='New passwords do not match.';return;}
+  users[currentUser].password=nw;
+  saveAllUsers(users);
+  closeModal('change-password-modal');
+  ['cp-current','cp-new','cp-confirm'].forEach(id=>document.getElementById(id).value='');
+  err.textContent='';
+  alert('Password changed successfully!');
+}
+
+// ════════════════════════════════════════════════════
+//  MUTUAL FINANCES — CONNECTION
+// ════════════════════════════════════════════════════
+function checkMutualConnection(){
+  const conn=getObj('mutual_partner',null);
+  if(conn&&conn.partner){
+    mutualPartner=conn.partner;
+    document.getElementById('mutual-nav-item').style.display='flex';
+    document.getElementById('um-mutual-link').style.display='flex';
+  }
+}
+
+function openConnectFlow(){
+  document.getElementById('connect-error').textContent='';
+  document.getElementById('connect-username').value='';
+  openModal('connect-modal');
+}
+
+function sendConnectRequest(){
+  const target=document.getElementById('connect-username').value.trim().toLowerCase();
+  const err=document.getElementById('connect-error');
+  const users=getAllUsers();
+  if(!target){err.textContent='Please enter a username.';return;}
+  if(target===currentUser){err.textContent='You cannot connect with yourself.';return;}
+  if(!users[target]){err.textContent='User "'+target+'" not found.';return;}
+  // Check if already connected
+  const existing=getObj('mutual_partner',null);
+  if(existing&&existing.partner){err.textContent='You are already connected with '+existing.partner+'. Disconnect first.';return;}
+  // Store connection request in shared space
+  const code=Math.floor(1000+Math.random()*9000).toString();
+  setShared('conn_request_for_'+target,{from:currentUser,code,ts:Date.now()});
+  setShared('conn_pending_by_'+currentUser,{to:target,code,ts:Date.now()});
+  closeModal('connect-modal');
+  alert('Request sent to @'+target+'! Ask them to check the 🔔 bell icon and enter the code you share with them.\n\nYour code for them to use: '+code);
+}
+
+function checkPendingConnectionRequests(){
+  // Check if the other side has approved our request
+  const pending=getShared('conn_pending_by_'+currentUser);
+  if(pending){
+    const approved=getShared('conn_approved_for_'+currentUser);
+    if(approved&&approved.partner){
+      // Finalize connection
+      setObj('mutual_partner',{partner:approved.partner});
+      const users=getAllUsers();
+      const partnerFullname=users[approved.partner]?.fullname||approved.partner;
+      setShared('conn_pending_by_'+currentUser,null);
+      setShared('conn_approved_for_'+currentUser,null);
+      mutualPartner=approved.partner;
+      document.getElementById('mutual-nav-item').style.display='flex';
+      document.getElementById('um-mutual-link').style.display='flex';
+    }
+  }
+}
+
+function openApproveModal(requester){
+  document.getElementById('approve-requester').textContent=requester;
+  const req=getShared('conn_request_for_'+currentUser);
+  const code=req?req.code:'????';
+  document.getElementById('approve-code').textContent=code;
+  document.getElementById('approve-code-input').value='';
+  openModal('approve-modal');
+}
+
+function checkApprovalCode(){
+  const entered=document.getElementById('approve-code-input').value.trim();
+  const req=getShared('conn_request_for_'+currentUser);
+  if(!req){alert('No pending request found.');closeModal('approve-modal');return;}
+  if(entered===req.code){
+    // Both sides approve
+    setShared('conn_approved_for_'+req.from,{partner:currentUser});
+    setShared('conn_request_for_'+currentUser,null);
+    setObj('mutual_partner',{partner:req.from});
+    // Also set partner connection on their side (they'll pick it up next load)
+    mutualPartner=req.from;
+    document.getElementById('mutual-nav-item').style.display='flex';
+    document.getElementById('um-mutual-link').style.display='flex';
+    closeModal('approve-modal');
+    updateNotifBadge();
+    alert('Connected! You can now view Mutual Finances with @'+req.from);
+  } else {
+    alert('Incorrect code. Ask your partner to share the correct 4-digit code.');
+  }
+}
+
+function denyConnection(){
+  const req=getShared('conn_request_for_'+currentUser);
+  if(req) setShared('conn_request_for_'+currentUser,null);
+  closeModal('approve-modal');
+  updateNotifBadge();
 }
 
 // ════════════════════════════════════════════════════
 //  MUTUAL FINANCES SCREEN
 // ════════════════════════════════════════════════════
-window.setMutualTab=function(tab,el){
+function setMutualTab(tab,el){
   currentMutualTab=tab;
   document.querySelectorAll('#mutual-tabs .tab').forEach(t=>t.classList.remove('active'));
   if(el)el.classList.add('active');
-  const labels={week:'Weekly',month:'Monthly',year:'Yearly'};
-  document.getElementById('mutual-summary-label').textContent='Combined '+labels[tab]+' Summary';
-};
-function renderMutualScreen(){
-  if(!mutualPartner){document.getElementById('screen-mutual').innerHTML='<div class="empty-state" style="padding:4rem 1rem"><div class="empty-icon">👫</div><p>No partner connected.<br/>Tap your avatar → Connect with Another User.</p></div>';return;}
-  const pd=await loadPartnerData();
-  if(!pd)return;
-  const partnerProf=await getProfile(mutualPartner);
-  const myTotal=getData('accounts').reduce((s,a)=>s+a.balance,0);
-  const pTotal=pd.accounts.reduce((s,a)=>s+a.balance,0);
-  const myName=currentFullname;
-  const pName=partnerProf?.fullname||partnerUsername;
-  document.getElementById('mutual-combined-total').textContent='$'+fmtNum(myTotal+pTotal);
-  document.getElementById('mutual-user1-name').textContent=myName;document.getElementById('mutual-user1-bal').textContent='$'+fmtNum(myTotal);
-  document.getElementById('mutual-user2-name').textContent=pName;document.getElementById('mutual-user2-bal').textContent='$'+fmtNum(pTotal);
-  // Timeline
-  const myD=getSpendData(getData('transactions'),currentMutualTab);
-  const pD=getSpendData(pd.transactions,currentMutualTab);
-  const combined={labels:myD.labels,income:myD.income.map((v,i)=>v+pD.income[i]),expense:myD.expense.map((v,i)=>v+pD.expense[i])};
-  const mCtx=document.getElementById('mutual-chart').getContext('2d');
-  if(mutualChart)mutualChart.destroy();
-  mutualChart=new Chart(mCtx,{type:'line',data:{labels:combined.labels,datasets:[{label:'Combined Income',data:combined.income,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#10b981'},{label:'Combined Spending',data:combined.expense,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#ef4444'}]},options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:11}}}}}});
-  // Summaries
-  function mutualSummaryFor(period){
-    const my=getSummaryFor(period);
-    const f=period==='week'?filterWeek(pd.transactions):filterMonth(pd.transactions);
-    const pI=f.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-    const pE=f.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-    return{income:my.income+pI,expense:my.expense+pE,net:my.net+(pI-pE)};
-  }
-  document.getElementById('mutual-summary-content').innerHTML=summaryHTML(mutualSummaryFor('week'));
-  document.getElementById('mutual-monthly-summary-content').innerHTML=summaryHTML(mutualSummaryFor('month'));
-  // All accounts
-  const allAccts=[...getData('accounts').map(a=>({...a,who:myName})),...pd.accounts.map(a=>({...a,who:pName}))];
-  document.getElementById('mutual-accounts-list').innerHTML=allAccts.map(a=>`<div class="account-row"><div class="account-icon" style="background:${acctColors[a.type]||'#2563eb'}18">${acctEmojis[a.type]||'🏦'}</div><div><div class="account-name">${escHtml(a.name)}</div><div class="account-type">${escHtml(a.who)} · ${capitalize(a.type)}</div></div><div class="account-amount ${a.balance<0?'text-red':''}">$${fmtNum(a.balance)}</div></div>`).join('');
-  // Combined transactions
-  const allTx=[...getData('transactions').map(t=>({...t,who:myName})),...pd.transactions.map(t=>({...t,who:pName}))].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,16);
-  document.getElementById('mutual-transactions').innerHTML=allTx.map(t=>`<div class="tx-row"><div class="tx-icon" style="background:${t.type==='income'?'#d1fae5':'#fee2e2'}">${(t.cat||'').split(' ')[0]||(t.type==='income'?'💵':'💸')}</div><div style="flex:1;min-width:0"><div class="tx-name">${escHtml(t.desc)}</div><div class="tx-cat">${escHtml(t.who)} · ${fmtDate(t.date)}</div></div><div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div></div>`).join('') || '<div class="empty-state" style="padding:1rem 0"><p>No transactions yet.</p></div>';
-  // Combined reminders
-  const today=new Date();today.setHours(0,0,0,0);
-  const allRem=[...getData('bills').filter(b=>!b.paid).map(b=>({...b,who:myName,kind:'bill'})),...pd.bills.filter(b=>!b.paid).map(b=>({...b,who:pName,kind:'bill'})),...getData('paydays').map(p=>({...p,who:myName,kind:'pay'})),...pd.paydays.map(p=>({...p,who:pName,kind:'pay'}))].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  document.getElementById('mutual-reminders').innerHTML=allRem.slice(0,12).map(item=>{
-    const diff=Math.ceil((new Date(item.date+'T00:00:00')-today)/86400000);
-    const color=item.kind==='bill'?(diff<=3&&diff>=0?'var(--gold)':'var(--accent)'):'var(--green)';
-    return`<div class="reminder-row"><div class="reminder-dot" style="background:${color}"></div><div class="reminder-info"><div class="reminder-name">${item.kind==='bill'?'📋':'💰'} ${escHtml(item.name||item.label)}</div><div class="reminder-date">${escHtml(item.who)} · ${fmtDateLong(item.date)}</div></div><div style="text-align:right;flex-shrink:0;font-size:.9rem;font-weight:700;color:${item.kind==='pay'?'var(--green)':''}">${item.kind==='pay'?'+':''}$${fmtNum(item.amount)}</div></div>`;
-  }).join('') || '<div class="empty-state" style="padding:1rem 0"><p>No reminders yet.</p></div>';
+  renderMutualChart();
+  renderMutualSummary();
 }
-function filterWeek(txs){const now=new Date();const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);return txs.filter(t=>{const d=new Date((t.date||'')+'T00:00:00');return d>=mon&&d<=now;});}
-function filterMonth(txs){const mk=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');return txs.filter(t=>(t.date||'').startsWith(mk));}
+
+function renderMutualScreen(){
+  if(!mutualPartner){
+    document.getElementById('screen-mutual').innerHTML='<div class="empty-state" style="padding:3rem 1rem"><div class="empty-icon">👫</div><p>No partner connected yet.<br/>Tap your avatar → Connect with Another User.</p></div>';
+    return;
+  }
+  const users=getAllUsers();
+  const myAccounts=getData('accounts');
+  const partnerAccounts=getDataFor(mutualPartner,'accounts');
+  const myTotal=myAccounts.reduce((s,a)=>s+a.balance,0);
+  const partnerTotal=partnerAccounts.reduce((s,a)=>s+a.balance,0);
+  const myName=users[currentUser]?.fullname||currentUser;
+  const partnerName=users[mutualPartner]?.fullname||mutualPartner;
+
+  document.getElementById('mutual-combined-total').textContent='$'+fmtNum(myTotal+partnerTotal);
+  document.getElementById('mutual-user1-name').textContent=myName;
+  document.getElementById('mutual-user1-bal').textContent='$'+fmtNum(myTotal);
+  document.getElementById('mutual-user2-name').textContent=partnerName;
+  document.getElementById('mutual-user2-bal').textContent='$'+fmtNum(partnerTotal);
+
+  renderMutualChart();
+  renderMutualSummary();
+  renderMutualTransactions(myName,partnerName);
+  renderMutualReminders(myName,partnerName);
+}
+
+function renderMutualChart(){
+  if(!mutualPartner)return;
+  const myD=getSpendData(null,currentMutualTab);
+  const partD=getSpendData(mutualPartner,currentMutualTab);
+  const combined={
+    labels:myD.labels,
+    income:myD.income.map((v,i)=>v+partD.income[i]),
+    expense:myD.expense.map((v,i)=>v+partD.expense[i])
+  };
+  const tabLabels={week:'Weekly',month:'Monthly',year:'Yearly'};
+  document.getElementById('mutual-summary-label').textContent='Combined '+tabLabels[currentMutualTab]+' Summary';
+  const ctx=document.getElementById('mutual-chart').getContext('2d');
+  if(mutualChart)mutualChart.destroy();
+  mutualChart=new Chart(ctx,{
+    type:'line',
+    data:{labels:combined.labels,datasets:[
+      {label:'Combined Income',data:combined.income,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#10b981'},
+      {label:'Combined Spending',data:combined.expense,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#ef4444'}
+    ]},
+    options:{...chartDefaults(),plugins:{legend:{display:true,labels:{color:'#475569',boxWidth:10,font:{size:11}}}}}
+  });
+}
+
+function renderMutualSummary(){
+  if(!mutualPartner)return;
+  const myS=getSummaryFor(currentMutualTab==='year'?'month':'week');
+  const partTx=getDataFor(mutualPartner,'transactions');
+  const now=new Date();
+  let pFiltered;
+  if(currentMutualTab==='week'){
+    const day=now.getDay();const monday=new Date(now);monday.setDate(now.getDate()-(day===0?6:day-1));monday.setHours(0,0,0,0);
+    pFiltered=partTx.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=monday&&d<=now;});
+  } else {
+    pFiltered=partTx.filter(t=>t.date&&t.date.startsWith(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')));
+  }
+  const pIncome=pFiltered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const pExpense=pFiltered.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const combined={income:myS.income+pIncome,expense:myS.expense+pExpense,net:myS.net+(pIncome-pExpense)};
+  document.getElementById('mutual-summary-content').innerHTML=summaryHTML(combined);
+}
+
+function renderMutualTransactions(myName,partnerName){
+  const users=getAllUsers();
+  const myTx=getData('transactions').map(t=>({...t,who:myName}));
+  const partTx=getDataFor(mutualPartner,'transactions').map(t=>({...t,who:partnerName}));
+  const all=[...myTx,...partTx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
+  const el=document.getElementById('mutual-transactions');
+  if(!all.length){el.innerHTML='<div class="empty-state" style="padding:1rem 0"><p>No transactions yet.</p></div>';return;}
+  el.innerHTML=all.map(t=>`
+    <div class="tx-row">
+      <div class="tx-icon" style="background:${t.type==='income'?'#d1fae5':'#fee2e2'}">${t.cat?t.cat.split(' ')[0]:(t.type==='income'?'💵':'💸')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tx-name">${escHtml(t.desc)}</div>
+        <div class="tx-cat">${escHtml(t.who)} · ${fmtDate(t.date)}</div>
+      </div>
+      <div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>
+    </div>`).join('');
+}
+
+function renderMutualReminders(myName,partnerName){
+  const today=new Date();today.setHours(0,0,0,0);
+  const myBills=getData('bills').filter(b=>!b.paid).map(b=>({...b,who:myName}));
+  const partBills=getDataFor(mutualPartner,'bills').filter(b=>!b.paid).map(b=>({...b,who:partnerName}));
+  const myPaydays=getData('paydays').map(p=>({...p,who:myName}));
+  const partPaydays=getDataFor(mutualPartner,'paydays').map(p=>({...p,who:partnerName}));
+  const all=[...myBills,...partBills,...myPaydays,...partPaydays].sort((a,b)=>a.date.localeCompare(b.date));
+  const el=document.getElementById('mutual-reminders');
+  if(!all.length){el.innerHTML='<div class="empty-state" style="padding:1rem 0"><p>No reminders yet.</p></div>';return;}
+  el.innerHTML=all.slice(0,10).map(item=>{
+    const isBill=item.hasOwnProperty('paid');
+    const diff=Math.ceil((new Date(item.date+'T00:00:00')-today)/86400000);
+    const color=isBill?(diff<=3&&diff>=0?'var(--gold)':'var(--accent)'):'var(--green)';
+    return`<div class="reminder-row">
+      <div class="reminder-dot" style="background:${color}"></div>
+      <div class="reminder-info">
+        <div class="reminder-name">${isBill?'📋':'💰'} ${escHtml(item.name||item.label)}</div>
+        <div class="reminder-date">${escHtml(item.who)} · ${fmtDateLong(item.date)}</div>
+      </div>
+      <div class="reminder-amount ${isBill?'':'text-green'}">${isBill?'$':'+'+'$'}${fmtNum(item.amount)}</div>
+    </div>`;
+  }).join('');
+}
 
 // ════════════════════════════════════════════════════
-//  AI ANALYSIS (kept as-is, uses C() cache)
+//  AI SPENDING ANALYSIS ENGINE
 // ════════════════════════════════════════════════════
-window.runSpendingAnalysis = runSpendingAnalysis;
-window.renderCategoryBars  = renderCategoryBars;
+
+// Auto-render the category bars whenever stats screen is shown
+function renderCategoryBars(){
+  const transactions=getData('transactions');
+  const now=new Date();
+  const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const monthExp=transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(mk));
+  const cats={};
+  monthExp.forEach(t=>{cats[t.cat||'💼 Other']=(cats[t.cat||'💼 Other']||0)+t.amount;});
+  const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  const BAR_COLORS=['#2563eb','#7c3aed','#db2777','#ea580c','#ca8a04','#16a34a','#0891b2','#4f46e5'];
+  const el=document.getElementById('ai-cat-bars');
+  if(!sorted.length){
+    el.innerHTML='<div style="font-size:.82rem;color:#94a3b8;text-align:center;padding:12px 0">No expenses logged this month yet.</div>';
+    return;
+  }
+  el.innerHTML=sorted.slice(0,7).map(([cat,amt],i)=>{
+    const pct=total>0?Math.round(amt/total*100):0;
+    const label=cat.length>14?cat.slice(0,14)+'…':cat;
+    return`<div class="cat-bar-row">
+      <div class="cat-bar-label" title="${escHtml(cat)}">${escHtml(label)}</div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%;background:${BAR_COLORS[i%BAR_COLORS.length]}"></div></div>
+      <div class="cat-bar-val">$${fmtNum(amt)}</div>
+    </div>`;
+  }).join('');
+  renderTrendIndicators(transactions,now,mk);
+}
+
+function renderTrendIndicators(transactions,now,mk){
+  // Compare this month vs last month
+  const lastMonth=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const lmk=lastMonth.getFullYear()+'-'+String(lastMonth.getMonth()+1).padStart(2,'0');
+  const thisExp=transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(mk)).reduce((s,t)=>s+t.amount,0);
+  const lastExp=transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(lmk)).reduce((s,t)=>s+t.amount,0);
+  const thisInc=transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(mk)).reduce((s,t)=>s+t.amount,0);
+  const lastInc=transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(lmk)).reduce((s,t)=>s+t.amount,0);
+  const savRate=thisInc>0?Math.round((thisInc-thisExp)/thisInc*100):null;
+
+  const el=document.getElementById('ai-trends');
+  if(!thisExp&&!thisInc){el.innerHTML='';return;}
+
+  const expDiff=lastExp>0?Math.round((thisExp-lastExp)/lastExp*100):null;
+  const incDiff=lastInc>0?Math.round((thisInc-lastInc)/lastInc*100):null;
+
+  let rows='';
+  if(expDiff!==null){
+    const dir=expDiff>5?'up':expDiff<-5?'down':'flat';
+    const icon=dir==='up'?'📈':'📉';
+    const cls=dir==='up'?'trend-up':dir==='down'?'trend-down':'trend-flat';
+    const msg=dir==='up'?`Spending up ${Math.abs(expDiff)}% vs last month`:dir==='down'?`Spending down ${Math.abs(expDiff)}% vs last month`:'Spending about the same as last month';
+    rows+=`<div class="ai-trend-row"><span style="font-size:1.1rem">${icon}</span><span style="font-size:.82rem;flex:1">${msg}</span><span class="${cls}">${expDiff>0?'+':''}${expDiff}%</span></div>`;
+  }
+  if(incDiff!==null){
+    const dir=incDiff>5?'up':incDiff<-5?'down':'flat';
+    const icon=dir==='up'?'💹':'📊';
+    const cls=dir==='up'?'trend-down':dir==='down'?'trend-up':'trend-flat';
+    const msg=dir==='up'?`Income up ${Math.abs(incDiff)}% vs last month`:dir==='down'?`Income down ${Math.abs(incDiff)}% vs last month`:'Income about the same as last month';
+    rows+=`<div class="ai-trend-row"><span style="font-size:1.1rem">${icon}</span><span style="font-size:.82rem;flex:1">${msg}</span><span class="${cls}">${incDiff>0?'+':''}${incDiff}%</span></div>`;
+  }
+  if(savRate!==null){
+    const icon=savRate>=20?'🟢':savRate>=10?'🟡':'🔴';
+    rows+=`<div class="ai-trend-row"><span style="font-size:1.1rem">${icon}</span><span style="font-size:.82rem;flex:1">Savings rate this month</span><span style="font-weight:700;color:${savRate>=20?'var(--green)':savRate>=10?'var(--gold)':'var(--red)'}">${savRate}%</span></div>`;
+  }
+
+  el.innerHTML=rows?`<div style="background:#fff;border:1px solid rgba(37,99,235,.12);border-radius:12px;padding:10px 12px;margin-bottom:4px">${rows}</div>`:'';
+}
+
+async function runSpendingAnalysis(){
+  const btn=document.getElementById('ai-analyze-btn');
+  const bodyEl=document.getElementById('ai-analysis-body');
+  const loadEl=document.getElementById('ai-loading');
+  const loadMsg=document.getElementById('ai-loading-msg');
+
+  // Show loading
+  btn.disabled=true; btn.textContent='Analyzing…';
+  loadEl.style.display='block';
+  bodyEl.style.display='none';
+
+  const transactions=getData('transactions');
+  const accounts=getData('accounts');
+  const goals=getData('goals');
+  const bills=getData('bills');
+  const now=new Date();
+  const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+  // Build last 3 months of data
+  const months=[];
+  for(let i=2;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const label=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    const mInc=transactions.filter(t=>t.type==='income'&&(t.date||'').startsWith(key)).reduce((s,t)=>s+t.amount,0);
+    const mExp=transactions.filter(t=>t.type==='expense'&&(t.date||'').startsWith(key)).reduce((s,t)=>s+t.amount,0);
+    const mCats={};
+    transactions.filter(t=>t.type==='expense'&&(t.date||'').startsWith(key)).forEach(t=>{mCats[t.cat||'Other']=(mCats[t.cat||'Other']||0)+t.amount;});
+    months.push({label,income:mInc,expense:mExp,cats:mCats,saved:mInc-mExp});
+  }
+
+  // Category totals (all time)
+  const allCats={};
+  transactions.filter(t=>t.type==='expense').forEach(t=>{allCats[t.cat||'Other']=(allCats[t.cat||'Other']||0)+t.amount;});
+  const topCats=Object.entries(allCats).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const totalBalance=accounts.reduce((s,a)=>s+a.balance,0);
+  const upcomingBills=bills.filter(b=>!b.paid).reduce((s,b)=>s+b.amount,0);
+  const activeGoals=goals.filter(g=>!g.met);
+
+  loadMsg.textContent='Building your financial picture…';
+
+  const prompt=`You are an expert personal finance analyst. Analyze this user's real spending data and produce a detailed, insightful report. Be specific, use their actual numbers, and give concrete actionable advice. Use a warm but professional tone.
+
+=== FINANCIAL SNAPSHOT ===
+Current total balance: $${fmtNum(totalBalance)}
+Upcoming bills (unpaid): $${fmtNum(upcomingBills)}
+Active savings goals: ${activeGoals.length} goals, total saved $${fmtNum(activeGoals.reduce((s,g)=>s+g.saved,0))} of $${fmtNum(activeGoals.reduce((s,g)=>s+g.target,0))} target
+
+=== LAST 3 MONTHS ===
+${months.map(m=>`${m.label}: Income $${fmtNum(m.income)}, Spent $${fmtNum(m.expense)}, Net $${fmtNum(m.saved)}`).join('\n')}
+
+=== TOP SPENDING CATEGORIES (all time) ===
+${topCats.map(([cat,amt])=>`${cat}: $${fmtNum(amt)}`).join('\n')}
+
+=== THIS MONTH CATEGORY DETAIL ===
+${Object.entries(months[2]?.cats||{}).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`${c}: $${fmtNum(v)}`).join('\n')||'No expenses this month yet'}
+
+Please write a structured analysis with these EXACT section headers. Start with the score block:
+
+**⭐ SCORE**
+OVERALL: [number 1-100]
+Savings Rate: [number 1-100]
+Spending Control: [number 1-100]
+Goal Progress: [number 1-100]
+GRADE: [one of: Excellent / Good / Fair / Needs Work / Critical]
+SUMMARY: [one sentence explaining the score]
+
+Then continue with:
+
+**🔍 Spending Pattern Summary**
+(2-3 sentences on overall habits and what the data reveals)
+
+**📊 Category Deep Dive**
+(Identify the top 2-3 spending categories. For each, note whether it seems high, low, or appropriate and why)
+
+**📈 Month-over-Month Trends**
+(What's improving? What's concerning? Be specific with the numbers)
+
+**💡 Top 3 Recommendations**
+(Numbered list. Specific, actionable steps the user can take THIS week based on their actual data)
+
+**🎯 Goal Progress Check**
+(Brief note on whether their current saving rate will help them reach their goals, or if they need to adjust)
+
+Keep everything under 400 words total. Use the actual dollar figures throughout. The score MUST be a plain integer between 1 and 100.`;
+
+  try{
+    loadMsg.textContent='Claude is analyzing your habits…';
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    if(data.content&&data.content[0]){
+      const text=data.content[0].text;
+      loadEl.style.display='none';
+      bodyEl.style.display='block';
+      const scoreData=extractScore(text);
+      animateScore(scoreData);
+      bodyEl.innerHTML=renderAnalysisHTML(text);
+    } else {
+      throw new Error('No response');
+    }
+  }catch(e){
+    loadEl.style.display='none';
+    bodyEl.style.display='block';
+    const fallbackScore=computeFallbackScore(months,topCats,activeGoals);
+    animateScore(fallbackScore);
+    bodyEl.innerHTML=renderFallbackAnalysis(months,topCats,totalBalance,upcomingBills,activeGoals);
+  }
+
+  btn.disabled=false; btn.textContent='Re-analyze 🔍';
+}
+
+// ── Score helpers ─────────────────────────────────────────
+function extractScore(text){
+  const overall=text.match(/OVERALL:\s*(\d+)/i);
+  const savRate=text.match(/Savings Rate:\s*(\d+)/i);
+  const spendCtrl=text.match(/Spending Control:\s*(\d+)/i);
+  const goalProg=text.match(/Goal Progress:\s*(\d+)/i);
+  const grade=text.match(/GRADE:\s*([A-Za-z ]+)/i);
+  const summary=text.match(/SUMMARY:\s*(.+)/i);
+  return{
+    overall:overall?Math.min(100,Math.max(1,parseInt(overall[1]))):50,
+    subScores:[
+      {label:'Savings Rate',val:savRate?parseInt(savRate[1]):50},
+      {label:'Spending Control',val:spendCtrl?parseInt(spendCtrl[1]):50},
+      {label:'Goal Progress',val:goalProg?parseInt(goalProg[1]):50}
+    ],
+    grade:grade?grade[1].trim():'Fair',
+    summary:summary?summary[1].trim():''
+  };
+}
+
+function computeFallbackScore(months,topCats,activeGoals){
+  const curr=months[2]||{income:0,expense:0,saved:0};
+  const prev=months[1]||{income:0,expense:0,saved:0};
+  const savRate=curr.income>0?(curr.income-curr.expense)/curr.income*100:0;
+  const savScore=Math.min(100,Math.round(savRate*4));
+  const expTrend=prev.expense>0?(curr.expense-prev.expense)/prev.expense*100:0;
+  const ctrlScore=Math.max(0,Math.min(100,70-Math.round(expTrend*1.5)));
+  const goalScore=activeGoals.length>0?Math.min(100,Math.round((activeGoals.reduce((s,g)=>s+(g.target>0?g.saved/g.target:0),0)/activeGoals.length)*100)):40;
+  const overall=Math.round(savScore*0.4+ctrlScore*0.35+goalScore*0.25);
+  const g=overall>=80?'Excellent':overall>=65?'Good':overall>=50?'Fair':overall>=35?'Needs Work':'Critical';
+  const summaries={'Excellent':'Your spending habits are excellent — keep it up!','Good':'You have solid financial habits with room to grow.','Fair':'A few adjustments could significantly improve your finances.','Needs Work':'Focus on reducing expenses and increasing your savings rate.','Critical':'Immediate changes are needed to stabilize your finances.'};
+  return{overall,subScores:[{label:'Savings Rate',val:savScore},{label:'Spending Control',val:ctrlScore},{label:'Goal Progress',val:goalScore}],grade:g,summary:summaries[g]};
+}
+
+function scoreColor(n){
+  if(n>=80)return{stroke:'#16a34a',text:'#14532d',bg:'#dcfce7'};
+  if(n>=65)return{stroke:'#65a30d',text:'#3f6212',bg:'#ecfccb'};
+  if(n>=50)return{stroke:'#ca8a04',text:'#713f12',bg:'#fef9c3'};
+  if(n>=35)return{stroke:'#ea580c',text:'#7c2d12',bg:'#ffedd5'};
+  return{stroke:'#dc2626',text:'#7f1d1d',bg:'#fee2e2'};
+}
+
+function animateScore(scoreData){
+  const section=document.getElementById('ai-score-section');
+  section.style.display='block';
+  const{overall,subScores,grade,summary}=scoreData;
+  const c=scoreColor(overall);
+  const circ=226.2;
+  const offset=circ-(circ*(overall/100));
+  const ring=document.getElementById('score-ring');
+  const numEl=document.getElementById('score-number');
+  const gradeEl=document.getElementById('score-grade');
+  const labelEl=document.getElementById('score-label');
+  const bkEl=document.getElementById('score-breakdown');
+  ring.style.stroke=c.stroke;
+  setTimeout(()=>{ring.style.strokeDashoffset=offset;},100);
+  let current=0;
+  const step=Math.ceil(overall/40);
+  const counter=setInterval(()=>{
+    current=Math.min(current+step,overall);
+    numEl.textContent=current;
+    if(current>=overall)clearInterval(counter);
+  },30);
+  numEl.style.color=c.text;
+  gradeEl.textContent=grade;
+  gradeEl.style.color=c.text;
+  if(summary)labelEl.textContent=summary;
+  bkEl.innerHTML=subScores.map(s=>{
+    const sc=scoreColor(s.val);
+    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <span style="font-size:.68rem;color:#475569;width:100px;flex-shrink:0">${s.label}</span>
+      <div style="flex:1;background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden">
+        <div style="width:0%;height:100%;background:${sc.stroke};border-radius:99px;transition:width 1s ease"></div>
+      </div>
+      <span style="font-size:.68rem;font-weight:700;color:${sc.text};width:26px;text-align:right">${s.val}</span>
+    </div>`;
+  }).join('');
+  setTimeout(()=>{
+    bkEl.querySelectorAll('div>div').forEach((bar,i)=>{
+      const target=subScores[i]?.val||0;
+      setTimeout(()=>{bar.style.width=target+'%';},i*100);
+    });
+  },300);
+}
+
+function renderAnalysisHTML(rawText){
+  // Skip the ⭐ SCORE block — already rendered in the gauge widget
+  const withoutScore=rawText.replace(/\*\*⭐ SCORE\*\*[\s\S]*?(?=\*\*🔍|\*\*📊|\*\*📈|\*\*💡|\*\*🎯|$)/,'');
+  const sections=withoutScore.split(/\n(?=\*\*[^*]+\*\*)/);
+  const sectionColors={
+    '🔍':'#dbeafe','📊':'#ede9fe','📈':'#dcfce7','💡':'#fef9c3','🎯':'#fce7f3'
+  };
+  let html='<div style="margin-top:4px">';
+  sections.forEach(section=>{
+    const match=section.match(/^\*\*([^*]+)\*\*\n?([\s\S]*)/);
+    if(!match){
+      if(section.trim())html+=`<p style="font-size:.84rem;color:#334155;line-height:1.6;margin-bottom:8px">${escHtml(section.trim())}</p>`;
+      return;
+    }
+    const[,title,body]=match;
+    const emoji=title.trim().charAt(0);
+    const bg=sectionColors[emoji]||'#f1f5f9';
+    const formatted=body.trim()
+      .replace(/\n(\d+)\. /g,'<br><span style="font-weight:700;color:#1e40af">$1.</span> ')
+      .replace(/\n- /g,'<br>• ')
+      .replace(/\n/g,'<br>');
+    if(!formatted.trim())return;
+    html+=`<div style="background:${bg};border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">${escHtml(title.trim())}</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">${formatted}</div>
+    </div>`;
+  });
+  html+='<div style="font-size:.72rem;color:#94a3b8;text-align:center;margin-top:8px">Analysis by Claude AI · Based on your real transaction data</div></div>';
+  return html;
+}
+
+function renderFallbackAnalysis(months,topCats,totalBalance,upcomingBills,activeGoals){
+  const curr=months[2]||{income:0,expense:0,saved:0};
+  const prev=months[1]||{income:0,expense:0,saved:0};
+  const rate=curr.income>0?Math.round((curr.income-curr.expense)/curr.income*100):0;
+  const expTrend=prev.expense>0?Math.round((curr.expense-prev.expense)/prev.expense*100):0;
+
+  return`<div style="margin-top:4px">
+    <div style="background:#dbeafe;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">🔍 Spending Pattern Summary</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
+        ${curr.income>0?`This month you earned $${fmtNum(curr.income)} and spent $${fmtNum(curr.expense)}, leaving a net of $${fmtNum(curr.saved)}.`:'No transactions recorded this month yet.'}
+        ${rate>=20?` Your ${rate}% savings rate is excellent — you\'re building real financial security.`:rate>0?` Your current savings rate is ${rate}%. The goal is 20% or higher.`:' Start logging income and expenses to unlock your full analysis.'}
+      </div>
+    </div>
+    ${topCats.length?`<div style="background:#ede9fe;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">📊 Category Deep Dive</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
+        Your top spending categories are: ${topCats.slice(0,3).map(([c,v])=>`<strong>${escHtml(c)}</strong> ($${fmtNum(v)})`).join(', ')}.
+        ${topCats[0]?` ${escHtml(topCats[0][0])} is your biggest expense area — consider setting a monthly cap for it.`:''}
+      </div>
+    </div>`:''}
+    ${prev.expense>0?`<div style="background:#dcfce7;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">📈 Month-over-Month Trends</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
+        Spending ${expTrend>0?'increased':'decreased'} by ${Math.abs(expTrend)}% compared to last month ($${fmtNum(prev.expense)} → $${fmtNum(curr.expense)}).
+        ${expTrend>10?' This is a notable increase — review what drove the extra spending.':expTrend<-10?' Great work cutting spending this month!':' Your spending is fairly consistent month to month.'}
+      </div>
+    </div>`:''}
+    <div style="background:#fef9c3;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">💡 Top Recommendations</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
+        <span style="font-weight:700;color:#1e40af">1.</span> ${topCats[0]?`Set a monthly budget cap for ${escHtml(topCats[0][0])} — your highest expense category.`:'Start by logging every transaction for one week to see where money goes.'}<br>
+        <span style="font-weight:700;color:#1e40af">2.</span> ${upcomingBills>0?`You have $${fmtNum(upcomingBills)} in upcoming bills — make sure that\'s reserved in your checking account.`:'Use the Reminders tab to track upcoming bills so nothing catches you off guard.'}<br>
+        <span style="font-weight:700;color:#1e40af">3.</span> ${rate<20&&curr.income>0?`To reach a 20% savings rate, aim to save $${fmtNum(curr.income*0.2)} of your $${fmtNum(curr.income)} income each month.`:'Review your spending weekly — catching overspending early is the most powerful habit.'}
+      </div>
+    </div>
+    ${activeGoals.length?`<div style="background:#fce7f3;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">🎯 Goal Progress Check</div>
+      <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
+        You have ${activeGoals.length} active goal${activeGoals.length!==1?'s':''} with $${fmtNum(activeGoals.reduce((s,g)=>s+g.saved,0))} saved toward a $${fmtNum(activeGoals.reduce((s,g)=>s+g.target,0))} target.
+        ${rate>=20?' Keep up your current savings rate and you\'re on track!':' Boosting your savings rate to 20% will help you reach your goals faster.'}
+      </div>
+    </div>`:''}
+    <div style="font-size:.72rem;color:#94a3b8;text-align:center;margin-top:8px">Score &amp; analysis based on your data · Connect to internet for Claude AI insights</div>
+  </div>`;
+}
 
 // ════════════════════════════════════════════════════
 //  CHART DEFAULTS
 // ════════════════════════════════════════════════════
 function chartDefaults(){
-  return{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+fmtNum(v)},grid:{color:'rgba(0,0,0,.06)'}}},plugins:{tooltip:{backgroundColor:'#1e3a8a',titleColor:'#ffffff',bodyColor:'#bfdbfe',callbacks:{label:c=>' $'+fmtNum(c.parsed.y??c.parsed)}}}};
+  return{
+    responsive:true,maintainAspectRatio:false,
+    scales:{
+      x:{ticks:{color:'#64748b',font:{size:10}},grid:{display:false}},
+      y:{ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+fmtNum(v)},grid:{color:'rgba(0,0,0,.06)'}}
+    },
+    plugins:{tooltip:{backgroundColor:'#1e3a8a',titleColor:'#ffffff',bodyColor:'#bfdbfe',callbacks:{label:ctx=>` $${fmtNum(ctx.parsed.y??ctx.parsed)}`}}}
+  };
 }
 
 // ════════════════════════════════════════════════════
@@ -1957,16 +2398,29 @@ function fmtDateLong(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDa
 function capitalize(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function today(){return new Date().toISOString().split('T')[0];}
-function getLast6Months(){const months=[];const now=new Date();for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:d.toLocaleDateString('en-US',{month:'short'})});}return months;}
-function showToast(msg){let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';el.style.cssText='position:fixed;bottom:calc(90px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:#1e3a8a;border:1px solid rgba(37,99,235,.3);color:#fff;padding:10px 20px;border-radius:20px;font-size:.85rem;font-weight:600;z-index:800;opacity:0;transition:opacity .3s;white-space:nowrap;pointer-events:none;max-width:80vw;overflow:hidden;text-overflow:ellipsis';document.body.appendChild(el);}el.textContent=msg;el.style.opacity='1';clearTimeout(el._t);el._t=setTimeout(()=>el.style.opacity='0',2500);}
+function getLast6Months(){
+  const months=[];const now=new Date();
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),label:d.toLocaleDateString('en-US',{month:'short'})});}
+  return months;
+}
 
 // ════════════════════════════════════════════════════
 //  SERVICE WORKER
 // ════════════════════════════════════════════════════
-if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
 
-// Show auth screen while Firebase checks session (onAuthStateChanged handles the rest)
-document.getElementById('auth-screen').style.display='flex';
+// ════════════════════════════════════════════════════
+//  AUTO-LOGIN (persist across refreshes)
+// ════════════════════════════════════════════════════
+(function(){
+  const saved=localStorage.getItem('mf_active_session');
+  if(saved){
+    const users=getAllUsers();
+    if(users[saved])loginUser(saved,users[saved].fullname);
+  }
+})();
 </script>
 </body>
 </html>

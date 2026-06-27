@@ -200,15 +200,15 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   <h1 class="auth-title">MyFinances</h1>
   <p class="auth-sub">Your personal finance companion</p>
   <div class="auth-tabs">
-    <div class="auth-tab active" id="tab-login">Sign In</div>
-    <div class="auth-tab" id="tab-register">Create Account</div>
+    <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+    <div class="auth-tab" onclick="switchAuthTab('register')">Create Account</div>
   </div>
   <div class="auth-form">
     <div id="auth-name-wrap" style="display:none"><input type="text" id="auth-fullname" placeholder="Full Name"/></div>
-    <input type="text" id="auth-username" placeholder="Username" autocomplete="username" autocapitalize="none"/>
+    <input type="text" id="auth-username" placeholder="Username" autocomplete="username"/>
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password"/>
     <div class="auth-error" id="auth-error"></div>
-    <button class="btn-primary" id="auth-btn">Sign In</button>
+    <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Sign In</button>
   </div>
 </div>
 
@@ -924,6 +924,14 @@ function C(key) { return _cache[key] || []; }
 //  AUTH
 // ════════════════════════════════════════════════════
 let authMode = 'login';
+window.switchAuthTab = function(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i) =>
+    t.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='register')));
+  document.getElementById('auth-name-wrap').style.display = mode==='register' ? 'block' : 'none';
+  document.getElementById('auth-btn').textContent = mode==='register' ? 'Create Account' : 'Sign In';
+  document.getElementById('auth-error').textContent = '';
+};
 
 window.handleAuth = async function() {
   const username  = (document.getElementById('auth-username').value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
@@ -1025,24 +1033,8 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ════════════════════════════════════════════════════
-//  WIRE AUTH BUTTONS (must be inside module scope)
+//  ACCOUNT MANAGEMENT
 // ════════════════════════════════════════════════════
-function switchAuthTab(mode) {
-  authMode = mode;
-  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
-  document.getElementById('tab-register').classList.toggle('active', mode === 'register');
-  document.getElementById('auth-name-wrap').style.display = mode === 'register' ? 'block' : 'none';
-  document.getElementById('auth-btn').textContent = mode === 'register' ? 'Create Account' : 'Sign In';
-  document.getElementById('auth-error').textContent = '';
-}
-
-document.getElementById('tab-login').addEventListener('click', () => switchAuthTab('login'));
-document.getElementById('tab-register').addEventListener('click', () => switchAuthTab('register'));
-document.getElementById('auth-btn').addEventListener('click', () => window.handleAuth());
-// Also allow Enter key on password field
-document.getElementById('auth-password').addEventListener('keydown', e => {
-  if (e.key === 'Enter') window.handleAuth();
-});
 window.changePassword = async function() {
   const cur  = document.getElementById('cp-current').value;
   const nw   = document.getElementById('cp-new').value;

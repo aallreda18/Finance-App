@@ -948,18 +948,15 @@ window.handleAuth = async function() {
       const fullname = (document.getElementById('auth-fullname').value||'').trim();
       if (!fullname)        { err.textContent = 'Please enter your full name.'; return; }
       if (password.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
-      // Check username not taken — doc ID is the username
-      const unSnap = await getDoc(doc(db,'usernames', username));
-      if (unSnap.exists()) { err.textContent = 'Username already taken. Try another.'; return; }
+      // Check username not taken
+      const existing = await getDocs(query(collection(db,'usernames'), where('username','==',username)));
+      if (!existing.empty) { err.textContent = 'Username already taken. Try another.'; return; }
       const cred = await createUserWithEmailAndPassword(auth, fakeEmail, password);
-      const uid = cred.user.uid;
-      // Save profile doc and reserve username — must use uid directly (currentUser not set yet)
-      await setDoc(doc(db, 'users', uid), { username, fullname, partnerUid: null });
-      await setDoc(doc(db, 'usernames', username), { uid });
-      // onAuthStateChanged will fire and complete the login flow
+      // Save profile and reserve username
+      await setDoc(profDoc.call({uid: cred.user.uid}||doc(db,'users',cred.user.uid)), { username, fullname, partnerUid: null }, { merge: true });
+      await setDoc(doc(db,'usernames',username), { uid: cred.user.uid });
     } else {
       await signInWithEmailAndPassword(auth, fakeEmail, password);
-      // onAuthStateChanged fires and handles the rest
     }
   } catch(e) {
     if (e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')
@@ -1016,20 +1013,14 @@ onAuthStateChanged(auth, async (user) => {
     await loadAllData();
     initApp();
   } else {
-    // Signed out — reset all state and show auth screen
     currentUser = null;
     currentUsername = '';
     currentFullname = '';
     mutualPartner = null;
-    partnerUsername = '';
-    _cache = {};
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
-    // Clear auth form fields so user can type fresh credentials
-    document.getElementById('auth-username').value = '';
-    document.getElementById('auth-password').value = '';
-    document.getElementById('auth-error').textContent = '';
   }
+  document.getElementById('auth-screen').style.display = user ? 'none' : 'flex';
 });
 
 // ════════════════════════════════════════════════════
@@ -1065,19 +1056,16 @@ window.openConnectFlow = function() {
 };
 
 window.sendConnectRequest = async function() {
-  const target = (document.getElementById('connect-username').value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
+  const target = (document.getElementById('connect-username').value||'').trim().toLowerCase();
   const err = document.getElementById('connect-error');
   err.textContent = '';
   if (!target) { err.textContent = 'Please enter a username.'; return; }
   if (target === currentUsername) { err.textContent = 'You cannot connect with yourself.'; return; }
   if (mutualPartner) { err.textContent = 'You are already connected. Disconnect first.'; return; }
-
-  // Look up target user by username — doc ID IS the username
-  const unSnap = await getDoc(doc(db,'usernames', target));
-  if (!unSnap.exists()) { err.textContent = 'User "@' + target + '" not found. Check the spelling.'; return; }
-  const targetUid = unSnap.data().uid;
-  if (!targetUid) { err.textContent = 'User "@' + target + '" not found.'; return; }
-
+  // Look up target user by username
+  const snap = await getDocs(query(collection(db,'usernames'), where('username','==',target)));
+  if (snap.empty) { err.textContent = 'User "@'+target+'" not found. Check spelling.'; return; }
+  const targetUid = snap.docs[0].data().uid;
   const code = Math.floor(1000+Math.random()*9000).toString();
   // Write connection request to Firestore (visible to both users)
   await setDoc(doc(db,'connections','req_'+targetUid), {
@@ -1087,7 +1075,13 @@ window.sendConnectRequest = async function() {
   });
   closeModal('connect-modal');
   showToast('Request sent to @' + target + ' ✅');
-  alert('Connection request sent to @' + target + '!\n\nYour verification code: ' + code + '\n\nShare this code with them, or ask them to check their 🔔 bell for the code to enter here.');
+  alert('Connection request sent to @' + target + '!\n\nYour verification code: ' + code + '\n\nShare this code with them, or ask them to check their 🔔 bell for a code to share with you.');
+};
+
+window.openConnectFlow = function() {
+  document.getElementById('connect-error').textContent='';
+  document.getElementById('connect-username').value='';
+  openModal('connect-modal');
 };
 
 async function checkPendingConnectionRequests() {
@@ -1289,29 +1283,21 @@ window.doTransfer = async function() {
   const ti = _cache.accounts.findIndex(a=>a.id===toId);
   if (fi<0||ti<0) return;
   if (_cache.accounts[fi].balance<amount && !confirm(`This will overdraw ${_cache.accounts[fi].name}. Continue?`)) return;
-
-  // Only update balances — do NOT log as income/expense so transfers don't skew stats/budgets
   _cache.accounts[fi].balance -= amount;
   _cache.accounts[ti].balance += amount;
   await Promise.all([
     saveItem('accounts',{id:fromId,balance:_cache.accounts[fi].balance}),
     saveItem('accounts',{id:toId,  balance:_cache.accounts[ti].balance}),
   ]);
-
-  // Log as a neutral transfer record (type:'transfer') — excluded from income/expense calculations
-  const fromName = _cache.accounts[fi].name;
-  const toName   = _cache.accounts[ti].name;
-  const tx = await saveItem('transactions',{
-    type:'transfer', amount, desc: note || `Transfer: ${fromName} → ${toName}`,
-    acctId:fromId, toAcctId:toId, date:today(), cat:'🔄 Transfer'
-  });
-  _cache.transactions.unshift(tx);
-
+  const stamp = Date.now().toString();
+  const tx1 = await saveItem('transactions',{type:'expense',amount,desc:'Transfer to '+_cache.accounts[ti].name,acctId:fromId,date:today(),cat:'🔄 Transfer'});
+  const tx2 = await saveItem('transactions',{type:'income', amount,desc:'Transfer from '+_cache.accounts[fi].name,acctId:toId,  date:today(),cat:'🔄 Transfer'});
+  _cache.transactions.unshift(tx2,tx1);
   closeModal('transfer-modal');
   document.getElementById('transfer-amount').value = '';
   document.getElementById('transfer-note').value   = '';
-  renderFinancesScreen(); renderStats();
-  showToast(`Transferred $${fmtNum(amount)} from ${fromName} to ${toName} ✅`);
+  renderFinancesScreen();
+  showToast(`Transferred $${fmtNum(amount)} ✅`);
 };
 
 // ════════════════════════════════════════════════════
@@ -2900,6 +2886,86 @@ function checkMutualConnection(){
     document.getElementById('mutual-nav-item').style.display='flex';
     document.getElementById('um-mutual-link').style.display='flex';
   }
+}
+
+function openConnectFlow(){
+  document.getElementById('connect-error').textContent='';
+  document.getElementById('connect-username').value='';
+  openModal('connect-modal');
+}
+
+function sendConnectRequest(){
+  const target=document.getElementById('connect-username').value.trim().toLowerCase();
+  const err=document.getElementById('connect-error');
+  const users=getAllUsers();
+  if(!target){err.textContent='Please enter a username.';return;}
+  if(target===currentUser){err.textContent='You cannot connect with yourself.';return;}
+  if(!users[target]){err.textContent='User "'+target+'" not found.';return;}
+  // Check if already connected
+  const existing=getObj('mutual_partner',null);
+  if(existing&&existing.partner){err.textContent='You are already connected with '+existing.partner+'. Disconnect first.';return;}
+  // Store connection request in shared space
+  const code=Math.floor(1000+Math.random()*9000).toString();
+  setShared('conn_request_for_'+target,{from:currentUser,code,ts:Date.now()});
+  setShared('conn_pending_by_'+currentUser,{to:target,code,ts:Date.now()});
+  closeModal('connect-modal');
+  alert('Request sent to @'+target+'! Ask them to check the 🔔 bell icon and enter the code you share with them.\n\nYour code for them to use: '+code);
+}
+
+function checkPendingConnectionRequests(){
+  // Check if the other side has approved our request
+  const pending=getShared('conn_pending_by_'+currentUser);
+  if(pending){
+    const approved=getShared('conn_approved_for_'+currentUser);
+    if(approved&&approved.partner){
+      // Finalize connection
+      setObj('mutual_partner',{partner:approved.partner});
+      const users=getAllUsers();
+      const partnerFullname=users[approved.partner]?.fullname||approved.partner;
+      setShared('conn_pending_by_'+currentUser,null);
+      setShared('conn_approved_for_'+currentUser,null);
+      mutualPartner=approved.partner;
+      document.getElementById('mutual-nav-item').style.display='flex';
+      document.getElementById('um-mutual-link').style.display='flex';
+    }
+  }
+}
+
+function openApproveModal(requester){
+  document.getElementById('approve-requester').textContent=requester;
+  const req=getShared('conn_request_for_'+currentUser);
+  const code=req?req.code:'????';
+  document.getElementById('approve-code').textContent=code;
+  document.getElementById('approve-code-input').value='';
+  openModal('approve-modal');
+}
+
+function checkApprovalCode(){
+  const entered=document.getElementById('approve-code-input').value.trim();
+  const req=getShared('conn_request_for_'+currentUser);
+  if(!req){alert('No pending request found.');closeModal('approve-modal');return;}
+  if(entered===req.code){
+    // Both sides approve
+    setShared('conn_approved_for_'+req.from,{partner:currentUser});
+    setShared('conn_request_for_'+currentUser,null);
+    setObj('mutual_partner',{partner:req.from});
+    // Also set partner connection on their side (they'll pick it up next load)
+    mutualPartner=req.from;
+    document.getElementById('mutual-nav-item').style.display='flex';
+    document.getElementById('um-mutual-link').style.display='flex';
+    closeModal('approve-modal');
+    updateNotifBadge();
+    alert('Connected! You can now view Mutual Finances with @'+req.from);
+  } else {
+    alert('Incorrect code. Ask your partner to share the correct 4-digit code.');
+  }
+}
+
+function denyConnection(){
+  const req=getShared('conn_request_for_'+currentUser);
+  if(req) setShared('conn_request_for_'+currentUser,null);
+  closeModal('approve-modal');
+  updateNotifBadge();
 }
 
 // ════════════════════════════════════════════════════

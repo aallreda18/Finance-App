@@ -704,35 +704,61 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 <div class="modal-overlay" id="connect-modal">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Connect with Another User</div>
-    <div id="connect-content">
-      <p class="fs-sm" style="margin-bottom:12px">Enter the username of someone else using MyFinances. They will receive a 4-digit code to approve the connection.</p>
-      <label>Their Username</label>
-      <input type="text" id="connect-username" placeholder="Enter their username"/>
+    <div class="modal-title">Connect with Partner</div>
+
+    <!-- Step 1: Enter username -->
+    <div id="conn-step1">
+      <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5">
+        Enter your partner's username. You'll get a shareable link and 6-digit code to send them — this works across different devices.
+      </p>
+      <label>Partner's Username</label>
+      <input type="text" id="connect-username" placeholder="Enter their username" autocapitalize="none" autocorrect="off"/>
       <div class="auth-error" id="connect-error"></div>
-      <div class="modal-row">
+      <div class="modal-row" style="margin-top:14px">
         <button class="btn-cancel" onclick="closeModal('connect-modal')">Cancel</button>
-        <button class="btn-primary" onclick="sendConnectRequest()">Send Request</button>
+        <button class="btn-primary" onclick="sendConnectRequest()">Generate Link &amp; Code</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Show code + link to share -->
+    <div id="conn-step2" style="display:none">
+      <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.5">
+        Send your partner <strong>either</strong> the link below <strong>or</strong> the 6-digit code. They'll use it to approve the connection from their device.
+      </p>
+      <div style="text-align:center;padding:14px 0 8px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">6-Digit Code</div>
+        <div id="conn-code-display" style="font-size:2.4rem;font-weight:800;letter-spacing:.5rem;color:#1d4ed8;font-variant-numeric:tabular-nums">------</div>
+      </div>
+      <label>Shareable Link (send via text or email)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="conn-share-link" readonly style="flex:1;font-size:.78rem;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);outline:none"/>
+        <button class="btn-primary" style="padding:10px 14px;width:auto;font-size:.82rem;flex-shrink:0" onclick="copyConnectLink()">Copy</button>
+      </div>
+      <p style="font-size:.78rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
+        📱 <strong>How it works:</strong> Your partner opens the link on their device, enters the 6-digit code, and both devices will show the Mutual Finances tab.
+      </p>
+      <div class="modal-row" style="margin-top:14px">
+        <button class="btn-cancel" onclick="closeModal('connect-modal')">Close</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Approve Connection (shown via bell) -->
+<!-- Approve Connection (opened via bell or link) -->
 <div class="modal-overlay" id="approve-modal">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">Connection Request</div>
-    <p class="fs-sm" style="margin-bottom:8px"><span id="approve-requester" style="color:var(--accent);font-weight:600"></span> wants to connect and share finances with you.</p>
-    <p class="fs-sm" style="margin-bottom:12px">Share this code with them to approve:</p>
-    <div class="code-display" id="approve-code">----</div>
-    <div id="approve-waiting" style="text-align:center;font-size:.82rem;color:var(--text-secondary);margin-bottom:12px">Waiting for them to enter the code...</div>
+    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:8px">
+      <span id="approve-requester" style="color:var(--accent);font-weight:700"></span> wants to connect and share finances with you.
+    </p>
+    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:4px">Enter the 6-digit code they shared with you:</p>
+    <input type="number" id="approve-code-input" placeholder="6-digit code" maxlength="6"
+      style="width:100%;padding:14px;font-size:1.4rem;font-weight:700;text-align:center;letter-spacing:.3rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text-primary);outline:none;margin:10px 0"/>
     <div class="modal-row">
       <button class="btn-cancel" onclick="denyConnection()">Deny</button>
-      <button class="btn-primary" onclick="checkApprovalCode()">Verify Code</button>
+      <button class="btn-primary" onclick="checkApprovalCode()">Approve &amp; Connect</button>
     </div>
-    <label style="margin-top:12px">Enter code from the other user (if they sent one)</label>
-    <input type="text" id="approve-code-input" placeholder="Enter 4-digit code" maxlength="4"/>
   </div>
 </div>
 
@@ -898,6 +924,8 @@ function loginUser(username,fullname){
 }
 
 function doLogout(){
+  // Clean up any stale shared connection keys for this user
+  _cleanupSharedKeys();
   localStorage.removeItem('mf_active_session');
   location.reload();
 }
@@ -905,13 +933,33 @@ function doLogout(){
 function deleteAccount(){
   if(!confirm('Delete your account and ALL your data? This cannot be undone.'))return;
   if(!confirm('Are you absolutely sure? All balances, transactions, goals, and reminders will be permanently deleted.'))return;
-  // Remove all user data
+  _cleanupSharedKeys();
+  // Remove all user data keys
   const keys=Object.keys(localStorage).filter(k=>k.startsWith('mf_'+currentUser+'_'));
   keys.forEach(k=>localStorage.removeItem(k));
   // Remove from users list
   let users=getAllUsers(); delete users[currentUser]; saveAllUsers(users);
   localStorage.removeItem('mf_active_session');
   location.reload();
+}
+
+function _cleanupSharedKeys(){
+  // Remove expired or orphaned shared connection keys (older than 48h)
+  const cutoff=Date.now()-172800000;
+  const sharedKeys=Object.keys(localStorage).filter(k=>k.startsWith('mf_shared_'));
+  sharedKeys.forEach(k=>{
+    try{
+      const v=JSON.parse(localStorage.getItem(k));
+      // Remove if: belongs to this user, or has a ts and it's expired
+      const isOwn=k.includes('_'+currentUser);
+      const isExpired=v&&v.ts&&v.ts<cutoff;
+      const isNull=v===null;
+      if(isOwn||isExpired||isNull) localStorage.removeItem(k);
+    }catch{ localStorage.removeItem(k); }
+  });
+  // Remove pending connect key for this user
+  localStorage.removeItem('mf_shared_conn_pending_by_'+currentUser);
+  localStorage.removeItem('mf_shared_conn_approved_for_'+currentUser);
 }
 
 // ════════════════════════════════════════════════════
@@ -1252,7 +1300,7 @@ function doTransfer(){
   const fromId=document.getElementById('transfer-from').value;
   const toId=document.getElementById('transfer-to').value;
   const amount=parseFloat(document.getElementById('transfer-amount').value);
-  const note=document.getElementById('transfer-note').value.trim()||'Transfer';
+  const note=document.getElementById('transfer-note').value.trim();
   if(!fromId||!toId){alert('Select both accounts.');return;}
   if(fromId===toId){alert('From and To accounts must be different.');return;}
   if(!amount||amount<=0){alert('Enter a valid transfer amount.');return;}
@@ -1264,11 +1312,12 @@ function doTransfer(){
   accounts[fi].balance-=amount;
   accounts[ti].balance+=amount;
   setData('accounts',accounts);
-  // Log as transactions for history
+  // Log as type:'transfer' — this is INTENTIONALLY excluded from income/expense/budget calculations
+  // The balances are updated above; these records are only for the transaction history display
   const transactions=getData('transactions');
   const stamp=Date.now().toString();
-  transactions.push({id:stamp+'a',type:'expense',amount,desc:`Transfer to ${accounts[ti].name}`,acctId:fromId,date:today(),cat:'🔄 Transfer'});
-  transactions.push({id:stamp+'b',type:'income', amount,desc:`Transfer from ${accounts[fi].name}`,acctId:toId,date:today(),cat:'🔄 Transfer'});
+  const desc=note||`Transfer: ${accounts[fi].name} → ${accounts[ti].name}`;
+  transactions.push({id:stamp,type:'transfer',amount,desc,fromAcctId:fromId,toAcctId:toId,date:today(),cat:'🔄 Transfer'});
   setData('transactions',transactions);
   closeModal('transfer-modal');
   document.getElementById('transfer-amount').value='';
@@ -1288,27 +1337,32 @@ function renderFinancesScreen(){
 }
 
 function renderRecentTransactions(){
-  const transactions=getData('transactions').slice().reverse().slice(0,10);
+  const transactions=getData('transactions').slice().reverse().slice(0,12);
   const el=document.getElementById('recent-transactions');
   if(!transactions.length){el.innerHTML='<div class="empty-state" style="padding:1rem 0"><p>No transactions yet.<br/>Tap "+ Add Expense" to log one.</p></div>';return;}
-  el.innerHTML=transactions.map(t=>`
-    <div class="tx-row">
-      <div class="tx-icon" style="background:${t.type==='income'?'#d1fae5':'#fee2e2'}">
-        ${t.cat?t.cat.split(' ')[0]:(t.type==='income'?'💵':'💸')}
+  el.innerHTML=transactions.map(t=>{
+    const isTransfer=t.type==='transfer';
+    const bgColor=isTransfer?'#f1f5f9':t.type==='income'?'#d1fae5':'#fee2e2';
+    const amtColor=isTransfer?'var(--text-secondary)':t.type==='income'?'text-green':'text-red';
+    const prefix=isTransfer?'⇄':t.type==='income'?'+':'-';
+    return`<div class="tx-row">
+      <div class="tx-icon" style="background:${bgColor}">
+        ${t.cat?t.cat.split(' ')[0]:(isTransfer?'🔄':t.type==='income'?'💵':'💸')}
       </div>
       <div style="flex:1;min-width:0">
         <div class="tx-name">${escHtml(t.desc)}</div>
         <div class="tx-cat">${t.cat||''} · ${fmtDate(t.date)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <div class="tx-amount ${t.type==='income'?'text-green':'text-red'}">${t.type==='income'?'+':'-'}$${fmtNum(t.amount)}</div>
+        <div class="tx-amount ${amtColor}">${isTransfer?'':prefix}$${fmtNum(t.amount)}</div>
         ${t.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${t.id}')" title="Edit">✏️</span>`:''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderIncomeChart(){
-  const transactions=getData('transactions');
+  const transactions=getData('transactions').filter(t=>t.type!=='transfer');
   const last6=getLast6Months();
   const incomeData=last6.map(m=>transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
   const expData=last6.map(m=>transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(m.key)).reduce((s,t)=>s+t.amount,0));
@@ -1346,7 +1400,8 @@ function renderStats(){
 }
 
 function getSpendData(user,tab){
-  const transactions=user?getDataFor(user,'transactions'):getData('transactions');
+  const allTx=user?getDataFor(user,'transactions'):getData('transactions');
+  const transactions=allTx.filter(t=>t.type!=='transfer');
   const now=new Date();
   let labels,income,expense;
   if(tab==='week'){
@@ -1403,7 +1458,7 @@ function renderPieChart(){
 }
 
 function getSummaryFor(period){
-  const transactions=getData('transactions');
+  const transactions=getData('transactions').filter(t=>t.type!=='transfer');
   const now=new Date();
   let filtered;
   if(period==='week'){
@@ -1470,7 +1525,7 @@ function renderBudgets(){
   }
   const now=new Date();
   el.innerHTML=budgets.map(b=>{
-    // Calculate current spend for this period and category
+    // Calculate current spend for this period and category — exclude transfers
     let filtered=transactions.filter(t=>t.type==='expense');
     if(b.cat)filtered=filtered.filter(t=>t.cat===b.cat);
     if(b.period==='weekly'){
@@ -1812,6 +1867,13 @@ function changePassword(){
 
 // ════════════════════════════════════════════════════
 //  MUTUAL FINANCES — CONNECTION
+//  HOW IT WORKS ACROSS DEVICES:
+//  1. User A enters User B's username → gets a 6-digit code + shareable link
+//  2. User A shares the link (or code) with User B via text/email
+//  3. User B opens the link on their device → approval modal auto-opens
+//  4. User B enters the code → both devices are now linked
+//  5. User A opens a "completion link" that User B's device generates
+//  This works because the connection data is encoded directly in the URL
 // ════════════════════════════════════════════════════
 function checkMutualConnection(){
   const conn=getObj('mutual_partner',null);
@@ -1820,84 +1882,153 @@ function checkMutualConnection(){
     document.getElementById('mutual-nav-item').style.display='flex';
     document.getElementById('um-mutual-link').style.display='flex';
   }
+  // Check if this page was opened via a connection link
+  _handleConnectURL();
+}
+
+function _handleConnectURL(){
+  const params=new URLSearchParams(window.location.search);
+  // Incoming request link: ?mfreq=<base64data>
+  const reqParam=params.get('mfreq');
+  if(reqParam){
+    try{
+      const data=JSON.parse(atob(reqParam));
+      if(data.to===currentUser&&data.from&&data.code){
+        // Store pending request and open approval modal
+        setShared('conn_request_for_'+currentUser,{from:data.from,code:data.code,ts:Date.now()});
+        updateNotifBadge();
+        // Clean URL so it doesn't re-trigger on refresh
+        window.history.replaceState({},'',window.location.pathname);
+        setTimeout(()=>openApproveModal(data.from),400);
+      }
+    }catch(e){}
+    return;
+  }
+  // Completion link: ?mfconn=<base64data> (sent after approval to finalize on requester's device)
+  const connParam=params.get('mfconn');
+  if(connParam){
+    try{
+      const data=JSON.parse(atob(connParam));
+      if(data.you===currentUser&&data.partner){
+        setObj('mutual_partner',{partner:data.partner});
+        mutualPartner=data.partner;
+        document.getElementById('mutual-nav-item').style.display='flex';
+        document.getElementById('um-mutual-link').style.display='flex';
+        window.history.replaceState({},'',window.location.pathname);
+        showToast('Connected with @'+data.partner+' 🎉');
+      }
+    }catch(e){}
+  }
 }
 
 function openConnectFlow(){
   document.getElementById('connect-error').textContent='';
   document.getElementById('connect-username').value='';
+  // Reset to step 1
+  document.getElementById('conn-step1').style.display='block';
+  document.getElementById('conn-step2').style.display='none';
   openModal('connect-modal');
 }
 
 function sendConnectRequest(){
-  const target=document.getElementById('connect-username').value.trim().toLowerCase();
+  const target=document.getElementById('connect-username').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
   const err=document.getElementById('connect-error');
-  const users=getAllUsers();
+  err.textContent='';
   if(!target){err.textContent='Please enter a username.';return;}
   if(target===currentUser){err.textContent='You cannot connect with yourself.';return;}
-  if(!users[target]){err.textContent='User "'+target+'" not found.';return;}
-  // Check if already connected
   const existing=getObj('mutual_partner',null);
-  if(existing&&existing.partner){err.textContent='You are already connected with '+existing.partner+'. Disconnect first.';return;}
-  // Store connection request in shared space
-  const code=Math.floor(1000+Math.random()*9000).toString();
-  setShared('conn_request_for_'+target,{from:currentUser,code,ts:Date.now()});
+  if(existing&&existing.partner){err.textContent='Already connected to @'+existing.partner+'. Disconnect first.';return;}
+  // Generate a 6-digit code
+  const code=String(Math.floor(100000+Math.random()*900000));
+  // Store pending so we can finalize once approved
   setShared('conn_pending_by_'+currentUser,{to:target,code,ts:Date.now()});
-  closeModal('connect-modal');
-  alert('Request sent to @'+target+'! Ask them to check the 🔔 bell icon and enter the code you share with them.\n\nYour code for them to use: '+code);
+  // Build shareable link — encodes everything the partner needs, no shared database required
+  const base=window.location.href.split('?')[0];
+  const payload=btoa(JSON.stringify({from:currentUser,to:target,code}));
+  const link=base+'?mfreq='+payload;
+  // Show step 2 with the code and link
+  document.getElementById('conn-code-display').textContent=code;
+  document.getElementById('conn-share-link').value=link;
+  document.getElementById('conn-step1').style.display='none';
+  document.getElementById('conn-step2').style.display='block';
+}
+
+function copyConnectLink(){
+  const link=document.getElementById('conn-share-link').value;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(()=>showToast('Link copied! Send it to your partner 📋')).catch(()=>_fallbackCopy(link));
+  } else { _fallbackCopy(link); }
+}
+function _fallbackCopy(text){
+  const el=document.getElementById('conn-share-link');
+  el.select(); el.setSelectionRange(0,9999);
+  try{ document.execCommand('copy'); showToast('Link copied! Send it to your partner 📋'); }catch(e){ showToast('Copy the link above manually'); }
 }
 
 function checkPendingConnectionRequests(){
-  // Check if the other side has approved our request
-  const pending=getShared('conn_pending_by_'+currentUser);
-  if(pending){
-    const approved=getShared('conn_approved_for_'+currentUser);
-    if(approved&&approved.partner){
-      // Finalize connection
-      setObj('mutual_partner',{partner:approved.partner});
-      const users=getAllUsers();
-      const partnerFullname=users[approved.partner]?.fullname||approved.partner;
-      setShared('conn_pending_by_'+currentUser,null);
-      setShared('conn_approved_for_'+currentUser,null);
-      mutualPartner=approved.partner;
-      document.getElementById('mutual-nav-item').style.display='flex';
-      document.getElementById('um-mutual-link').style.display='flex';
-    }
+  // Check same-device pending request (user B on same device as user A)
+  const raw=localStorage.getItem('mf_shared_conn_request_for_'+currentUser);
+  if(raw){
+    try{
+      const req=JSON.parse(raw);
+      if(Date.now()-req.ts<86400000){ // 24h expiry
+        window._pendingConnReq=req;
+        updateNotifBadge();
+      } else {
+        localStorage.removeItem('mf_shared_conn_request_for_'+currentUser);
+      }
+    }catch{}
   }
 }
 
 function openApproveModal(requester){
-  document.getElementById('approve-requester').textContent=requester;
   const req=getShared('conn_request_for_'+currentUser);
-  const code=req?req.code:'????';
-  document.getElementById('approve-code').textContent=code;
+  if(!req)return;
+  window._pendingConnReq=req;
+  document.getElementById('approve-requester').textContent=requester||req.from;
+  document.getElementById('approve-code').textContent=req.code;
   document.getElementById('approve-code-input').value='';
   openModal('approve-modal');
+  updateNotifBadge();
 }
 
 function checkApprovalCode(){
   const entered=document.getElementById('approve-code-input').value.trim();
-  const req=getShared('conn_request_for_'+currentUser);
+  const req=window._pendingConnReq||getShared('conn_request_for_'+currentUser);
   if(!req){alert('No pending request found.');closeModal('approve-modal');return;}
-  if(entered===req.code){
-    // Both sides approve
-    setShared('conn_approved_for_'+req.from,{partner:currentUser});
-    setShared('conn_request_for_'+currentUser,null);
-    setObj('mutual_partner',{partner:req.from});
-    // Also set partner connection on their side (they'll pick it up next load)
-    mutualPartner=req.from;
-    document.getElementById('mutual-nav-item').style.display='flex';
-    document.getElementById('um-mutual-link').style.display='flex';
-    closeModal('approve-modal');
-    updateNotifBadge();
-    alert('Connected! You can now view Mutual Finances with @'+req.from);
-  } else {
-    alert('Incorrect code. Ask your partner to share the correct 4-digit code.');
-  }
+  if(entered!==req.code){alert('Incorrect code. Check the 6-digit code with your partner.');return;}
+  // Approve: save connection on this device
+  setObj('mutual_partner',{partner:req.from});
+  setShared('conn_request_for_'+currentUser,null);
+  // Also update users registry for same-device access
+  const users=getAllUsers();
+  if(users[currentUser]) users[currentUser].partnerUsername=req.from;
+  if(users[req.from])    users[req.from].partnerUsername=currentUser;
+  saveAllUsers(users);
+  mutualPartner=req.from;
+  window._pendingConnReq=null;
+  document.getElementById('mutual-nav-item').style.display='flex';
+  document.getElementById('um-mutual-link').style.display='flex';
+  closeModal('approve-modal');
+  updateNotifBadge();
+  // Generate a completion link for the requester to open on their device
+  const base=window.location.href.split('?')[0];
+  const payload=btoa(JSON.stringify({you:req.from,partner:currentUser}));
+  const doneLink=base+'?mfconn='+payload;
+  showToast('Connected with @'+req.from+' 🎉');
+  setTimeout(()=>{
+    if(confirm('Connected! ✅\n\nNow send this link to @'+req.from+' so the Mutual Finances tab also appears on their device:\n\n'+doneLink+'\n\nTap OK to copy the link automatically.')){
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(doneLink).then(()=>showToast('Completion link copied! Send it to @'+req.from)).catch(()=>{});
+      }
+    }
+  },300);
 }
 
 function denyConnection(){
   const req=getShared('conn_request_for_'+currentUser);
   if(req) setShared('conn_request_for_'+currentUser,null);
+  window._pendingConnReq=null;
   closeModal('approve-modal');
   updateNotifBadge();
 }

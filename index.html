@@ -1055,8 +1055,13 @@ function renderBellPanel(){
   const pending=getShared('conn_request_for_'+currentUser);
   if(pending){
     count++;
-    html+=`<div class="dropdown-item" onclick="openApproveModal('${pending.from}');document.getElementById('bell-dropdown').classList.remove('open')">
-      🔔 <span><strong>${pending.from}</strong> wants to connect</span>
+    html+=`<div class="dropdown-item" style="background:#eff6ff;border-radius:10px;margin-bottom:6px;cursor:pointer"
+      onclick="closePanels('');setTimeout(()=>openApproveModal('${escHtml(pending.from)}'),50)">
+      <span style="font-size:1.2rem">🔗</span>
+      <div>
+        <div style="font-weight:700;color:#1d4ed8">Connection Request</div>
+        <div style="font-size:.75rem;color:#475569"><strong>@${escHtml(pending.from)}</strong> wants to connect · Tap to review</div>
+      </div>
     </div>`;
   }
 
@@ -1888,23 +1893,29 @@ function checkMutualConnection(){
 
 function _handleConnectURL(){
   const params=new URLSearchParams(window.location.search);
+
   // Incoming request link: ?mfreq=<base64data>
   const reqParam=params.get('mfreq');
   if(reqParam){
     try{
       const data=JSON.parse(atob(reqParam));
-      if(data.to===currentUser&&data.from&&data.code){
-        // Store pending request and open approval modal
+      if(!data.from||!data.code){return;}
+      // Store in sessionStorage so it survives login redirect on this device
+      sessionStorage.setItem('mf_pending_req',JSON.stringify(data));
+      window.history.replaceState({},'',window.location.pathname);
+      // If the intended recipient is already logged in, open the modal immediately
+      if(data.to&&data.to===currentUser){
         setShared('conn_request_for_'+currentUser,{from:data.from,code:data.code,ts:Date.now()});
+        window._pendingConnReq={from:data.from,code:data.code};
         updateNotifBadge();
-        // Clean URL so it doesn't re-trigger on refresh
-        window.history.replaceState({},'',window.location.pathname);
         setTimeout(()=>openApproveModal(data.from),400);
       }
+      // Otherwise, checkPendingConnectionRequests() will pick it up after login
     }catch(e){}
     return;
   }
-  // Completion link: ?mfconn=<base64data> (sent after approval to finalize on requester's device)
+
+  // Completion link: ?mfconn=<base64data>
   const connParam=params.get('mfconn');
   if(connParam){
     try{
@@ -1916,6 +1927,10 @@ function _handleConnectURL(){
         document.getElementById('um-mutual-link').style.display='flex';
         window.history.replaceState({},'',window.location.pathname);
         showToast('Connected with @'+data.partner+' 🎉');
+      } else if(data.you&&data.partner){
+        // Store for after login
+        sessionStorage.setItem('mf_pending_conn',JSON.stringify(data));
+        window.history.replaceState({},'',window.location.pathname);
       }
     }catch(e){}
   }
@@ -1966,12 +1981,49 @@ function _fallbackCopy(text){
 }
 
 function checkPendingConnectionRequests(){
-  // Check same-device pending request (user B on same device as user A)
+  // ── Case 1: Arrived via ?mfreq= link before logging in ──────────────────
+  // The link data was stashed in sessionStorage by _handleConnectURL
+  const pendingReqRaw=sessionStorage.getItem('mf_pending_req');
+  if(pendingReqRaw){
+    try{
+      const data=JSON.parse(pendingReqRaw);
+      // Only use it if it's addressed to the now-logged-in user
+      if(data.to===currentUser&&data.from&&data.code){
+        setShared('conn_request_for_'+currentUser,{from:data.from,code:data.code,ts:Date.now()});
+        window._pendingConnReq={from:data.from,code:data.code};
+        sessionStorage.removeItem('mf_pending_req');
+        updateNotifBadge();
+        setTimeout(()=>openApproveModal(data.from),500);
+        return;
+      }
+    }catch{}
+    sessionStorage.removeItem('mf_pending_req');
+  }
+
+  // ── Case 2: Arrived via ?mfconn= link before logging in ─────────────────
+  const pendingConnRaw=sessionStorage.getItem('mf_pending_conn');
+  if(pendingConnRaw){
+    try{
+      const data=JSON.parse(pendingConnRaw);
+      if(data.you===currentUser&&data.partner){
+        setObj('mutual_partner',{partner:data.partner});
+        mutualPartner=data.partner;
+        document.getElementById('mutual-nav-item').style.display='flex';
+        document.getElementById('um-mutual-link').style.display='flex';
+        sessionStorage.removeItem('mf_pending_conn');
+        showToast('Connected with @'+data.partner+' 🎉');
+        return;
+      }
+    }catch{}
+    sessionStorage.removeItem('mf_pending_conn');
+  }
+
+  // ── Case 3: Same-device shared key (both users on same device) ──────────
   const raw=localStorage.getItem('mf_shared_conn_request_for_'+currentUser);
   if(raw){
     try{
       const req=JSON.parse(raw);
-      if(Date.now()-req.ts<86400000){ // 24h expiry
+      if(req&&req.ts&&Date.now()-req.ts<86400000){
         window._pendingConnReq=req;
         updateNotifBadge();
       } else {
@@ -1982,44 +2034,69 @@ function checkPendingConnectionRequests(){
 }
 
 function openApproveModal(requester){
-  const req=getShared('conn_request_for_'+currentUser);
-  if(!req)return;
-  window._pendingConnReq=req;
-  document.getElementById('approve-requester').textContent=requester||req.from;
-  document.getElementById('approve-code').textContent=req.code;
+  // Pull the pending request from: shared storage OR the in-memory cache set by _handleConnectURL
+  const req=getShared('conn_request_for_'+currentUser)||window._pendingConnReq||null;
+  if(!req){
+    // No data found — show the modal anyway with just the requester name so the user can type the code manually
+    window._pendingConnReq={from:requester,code:null};
+  } else {
+    window._pendingConnReq=req;
+  }
+  const fromName=req?req.from:requester;
+  document.getElementById('approve-requester').textContent='@'+escHtml(fromName);
   document.getElementById('approve-code-input').value='';
-  openModal('approve-modal');
+  document.getElementById('approve-code-input').placeholder='Enter the 6-digit code from @'+escHtml(fromName);
+  // Open the modal directly (don't call openModal which runs populateSelects)
+  document.getElementById('approve-modal').classList.add('open');
   updateNotifBadge();
 }
 
 function checkApprovalCode(){
   const entered=document.getElementById('approve-code-input').value.trim();
+  if(!entered||entered.length<4){alert('Please enter the 6-digit code shared by your partner.');return;}
+
   const req=window._pendingConnReq||getShared('conn_request_for_'+currentUser);
-  if(!req){alert('No pending request found.');closeModal('approve-modal');return;}
-  if(entered!==req.code){alert('Incorrect code. Check the 6-digit code with your partner.');return;}
-  // Approve: save connection on this device
+  if(!req||!req.from){alert('No pending request found. Please ask your partner to share the link or code again.');closeModal('approve-modal');return;}
+
+  // If we have the expected code stored (came via link), validate it
+  if(req.code&&entered!==req.code){
+    alert('Incorrect code. Double-check the 6-digit code with @'+req.from+' and try again.');
+    return;
+  }
+
+  // ✅ Code matches (or no stored code to compare — trust user entry)
+  // Save connection on this device
   setObj('mutual_partner',{partner:req.from});
   setShared('conn_request_for_'+currentUser,null);
-  // Also update users registry for same-device access
+  // Update users registry so same-device access also works
   const users=getAllUsers();
   if(users[currentUser]) users[currentUser].partnerUsername=req.from;
   if(users[req.from])    users[req.from].partnerUsername=currentUser;
   saveAllUsers(users);
   mutualPartner=req.from;
   window._pendingConnReq=null;
+
+  // Show Mutual Finances tab
   document.getElementById('mutual-nav-item').style.display='flex';
   document.getElementById('um-mutual-link').style.display='flex';
   closeModal('approve-modal');
   updateNotifBadge();
-  // Generate a completion link for the requester to open on their device
+
+  // Build a completion link for the requester's device and prompt to share it
   const base=window.location.href.split('?')[0];
   const payload=btoa(JSON.stringify({you:req.from,partner:currentUser}));
   const doneLink=base+'?mfconn='+payload;
   showToast('Connected with @'+req.from+' 🎉');
+
   setTimeout(()=>{
-    if(confirm('Connected! ✅\n\nNow send this link to @'+req.from+' so the Mutual Finances tab also appears on their device:\n\n'+doneLink+'\n\nTap OK to copy the link automatically.')){
+    const msg='✅ Connected!\n\nSend this link to @'+req.from+' so their device also shows the Mutual Finances tab:\n\n'+doneLink+'\n\nTap OK to copy it.';
+    if(confirm(msg)){
       if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(doneLink).then(()=>showToast('Completion link copied! Send it to @'+req.from)).catch(()=>{});
+        navigator.clipboard.writeText(doneLink)
+          .then(()=>showToast('Link copied — send it to @'+req.from+' 📋'))
+          .catch(()=>prompt('Copy this link and send it to @'+req.from+':',doneLink));
+      } else {
+        prompt('Copy this link and send it to @'+req.from+':',doneLink);
       }
     }
   },300);
@@ -2541,6 +2618,34 @@ function getLast6Months(){
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
+
+// ════════════════════════════════════════════════════
+//  EARLY URL HANDLER — runs before auth so link data
+//  is captured into sessionStorage even if not logged in
+// ════════════════════════════════════════════════════
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  const reqParam=params.get('mfreq');
+  if(reqParam){
+    try{
+      const data=JSON.parse(atob(reqParam));
+      if(data.from&&data.code){
+        sessionStorage.setItem('mf_pending_req',JSON.stringify(data));
+        window.history.replaceState({},'',window.location.pathname);
+      }
+    }catch{}
+  }
+  const connParam=params.get('mfconn');
+  if(connParam){
+    try{
+      const data=JSON.parse(atob(connParam));
+      if(data.you&&data.partner){
+        sessionStorage.setItem('mf_pending_conn',JSON.stringify(data));
+        window.history.replaceState({},'',window.location.pathname);
+      }
+    }catch{}
+  }
+})();
 
 // ════════════════════════════════════════════════════
 //  AUTO-LOGIN (persist across refreshes)

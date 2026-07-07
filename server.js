@@ -450,10 +450,12 @@ app.get('/api/partner/data', auth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SERVE FRONTEND (index.html for all non-API routes)
+//  SERVE FRONTEND — serves index.html from the root directory
 // ═══════════════════════════════════════════════════════════════════════════
+app.use(express.static(__dirname));   // serve all static files from root
+
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {

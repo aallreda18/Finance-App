@@ -39,6 +39,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 .auth-form input::placeholder{color:var(--text-muted)}
 .btn-primary{padding:14px;background:var(--royal);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;width:100%}
 .btn-primary:active{transform:scale(.98);background:var(--royal-bright)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed}
 .btn-sm{padding:10px 16px;font-size:.875rem;border-radius:10px;width:auto}
 .auth-error{color:var(--red);font-size:.8rem;text-align:center;min-height:1rem}
 /* APP SHELL */
@@ -241,8 +242,9 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <div style="font-size:.78rem;color:var(--text-secondary)" id="um-username">@username</div>
     </div>
     <div class="dropdown-item" onclick="openModal('change-password-modal');closeUserMenu()">🔑 Change Password</div>
-    <div class="dropdown-item" onclick="openConnectFlow();closeUserMenu()">🔗 Connect with Another User</div>
+    <div id="um-connect-link" class="dropdown-item" onclick="openConnectFlow();closeUserMenu()">🔗 Connect with Another User</div>
     <div id="um-mutual-link" style="display:none" class="dropdown-item" onclick="switchToMutual();closeUserMenu()">👫 View Mutual Finances</div>
+    <div id="um-disconnect-link" style="display:none" class="dropdown-item" onclick="disconnectPartner();closeUserMenu()">🔌 Disconnect Partner</div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item danger" onclick="deleteAccount()">🗑️ Delete Account</div>
     <div class="dropdown-item danger" onclick="doLogout()">🚪 Sign Out</div>
@@ -448,17 +450,8 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       </div>
       <div class="card">
         <div class="section-header">
-          <div class="card-title" style="margin:0">Shared Goals</div>
-          <span class="section-action" onclick="openModal('add-mutual-goal-modal')">+ New Goal</span>
+          <div class="card-title" style="margin:0">Recent Activity (Both)</div>
         </div>
-        <div class="btn-row" style="margin-bottom:8px">
-          <button class="btn-action primary-action" onclick="openModal('add-mutual-goal-modal')"><span class="btn-icon">🎯</span>New Shared Goal</button>
-          <button class="btn-action" onclick="openModal('contribute-mutual-goal-modal')"><span class="btn-icon">💸</span>Add Funds</button>
-        </div>
-        <div id="mutual-goals-list"><div class="empty-state" style="padding:1rem 0"><p>No shared goals yet.<br/>Tap "New Shared Goal" to create one together.</p></div></div>
-      </div>
-      <div class="card">
-        <div class="section-header"><div class="card-title" style="margin:0">Recent Activity (Both)</div></div>
         <div id="mutual-transactions"></div>
       </div>
       <div class="card">
@@ -709,33 +702,29 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <!-- Step 1: Enter username -->
     <div id="conn-step1">
       <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5">
-        Enter your partner's username. You'll get a shareable link and 6-digit code to send them — this works across different devices.
+        Enter your partner's username. This sends a request to their account — they'll see it waiting on their own device, no matter where they are.
       </p>
       <label>Partner's Username</label>
       <input type="text" id="connect-username" placeholder="Enter their username" autocapitalize="none" autocorrect="off"/>
       <div class="auth-error" id="connect-error"></div>
       <div class="modal-row" style="margin-top:14px">
         <button class="btn-cancel" onclick="closeModal('connect-modal')">Cancel</button>
-        <button class="btn-primary" onclick="sendConnectRequest()">Generate Link &amp; Code</button>
+        <button class="btn-primary" onclick="sendConnectRequest()">Send Request</button>
       </div>
     </div>
 
-    <!-- Step 2: Show code + link to share -->
+    <!-- Step 2: Show code -->
     <div id="conn-step2" style="display:none">
       <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.5">
-        Send your partner <strong>either</strong> the link below <strong>or</strong> the 6-digit code. They'll use it to approve the connection from their device.
+        Send your partner this 6-digit code (by text, call, or in person). They'll enter it on their own device to confirm the connection — it works across any device, anywhere.
       </p>
       <div style="text-align:center;padding:14px 0 8px">
         <div style="font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">6-Digit Code</div>
         <div id="conn-code-display" style="font-size:2.4rem;font-weight:800;letter-spacing:.5rem;color:#1d4ed8;font-variant-numeric:tabular-nums">------</div>
-      </div>
-      <label>Shareable Link (send via text or email)</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="conn-share-link" readonly style="flex:1;font-size:.78rem;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);outline:none"/>
-        <button class="btn-primary" style="padding:10px 14px;width:auto;font-size:.82rem;flex-shrink:0" onclick="copyConnectLink()">Copy</button>
+        <button class="btn-primary btn-sm" style="margin-top:8px" onclick="copyConnectCode()">Copy Code</button>
       </div>
       <p style="font-size:.78rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
-        📱 <strong>How it works:</strong> Your partner opens the link on their device, enters the 6-digit code, and both devices will show the Mutual Finances tab.
+        📱 <strong>How it works:</strong> Your partner signs into their own account, taps the 🔔 bell (your request will be waiting there), and enters this code to approve.
       </p>
       <div class="modal-row" style="margin-top:14px">
         <button class="btn-cancel" onclick="closeModal('connect-modal')">Close</button>
@@ -744,7 +733,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   </div>
 </div>
 
-<!-- Approve Connection (opened via bell or link) -->
+<!-- Approve Connection (opened via bell) -->
 <div class="modal-overlay" id="approve-modal">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -853,29 +842,66 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 
 <script>
 // ════════════════════════════════════════════════════
-//  DATA STORE — per-user namespaced localStorage
+//  CONFIG & STATE
+//  Data now lives on the server (MongoDB), not localStorage.
+//  localStorage is only used to remember the login token on
+//  THIS device — the actual accounts/transactions/etc. are
+//  fetched from the API every time, which is what makes
+//  cross-device sign-in and partner connections work.
 // ════════════════════════════════════════════════════
-let currentUser = null;
-let currentUserFullname = '';
+const API_BASE=''; // same-origin: server.js serves this file directly
 
-function uKey(k){ return 'mf_'+currentUser+'_'+k; }
-function getData(k){ try{ return JSON.parse(localStorage.getItem(uKey(k)))||[]; }catch{ return []; } }
-function setData(k,v){ localStorage.setItem(uKey(k),JSON.stringify(v)); }
-function getObj(k,def={}){ try{ return JSON.parse(localStorage.getItem(uKey(k)))||def; }catch{ return def; } }
-function setObj(k,v){ localStorage.setItem(uKey(k),JSON.stringify(v)); }
+let authToken=localStorage.getItem('mf_token')||null;
+let currentUser=null;            // username
+let currentUserFullname='';
+let mutualPartner=null;          // partner's username, or null
+let partnerFullname='';
+let incomingPendingReq=null;     // {from} if someone has requested to connect with me
+let pollTimer=null;
 
-function getAllUsers(){
-  try{ return JSON.parse(localStorage.getItem('mf_users'))||{}; }catch{ return {}; }
+// In-memory cache of the logged-in user's data (kept in sync with the server)
+let store={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[]};
+// In-memory cache of the connected partner's data (read-only)
+let partnerStore={accounts:[],transactions:[],bills:[],paydays:[],goals:[]};
+
+function getData(k){ return store[k]||[]; }
+function setData(k,v){ store[k]=v; }
+function getDataFor(_user,k){ return partnerStore[k]||[]; } // only one partner supported
+
+// ════════════════════════════════════════════════════
+//  API HELPER
+// ════════════════════════════════════════════════════
+async function api(method,path,body){
+  const headers={'Content-Type':'application/json'};
+  if(authToken) headers['Authorization']='Bearer '+authToken;
+  let res;
+  try{
+    res=await fetch(API_BASE+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined});
+  }catch(e){
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
+  let data={};
+  try{ data=await res.json(); }catch{}
+  if(!res.ok){
+    if(res.status===401){ authToken=null; localStorage.removeItem('mf_token'); }
+    throw new Error(data.error||('Request failed ('+res.status+')'));
+  }
+  return data;
 }
-function saveAllUsers(u){ localStorage.setItem('mf_users',JSON.stringify(u)); }
 
-// Cross-user read (read-only, for mutual)
-function getDataFor(user,k){ try{ return JSON.parse(localStorage.getItem('mf_'+user+'_'+k))||[]; }catch{ return []; } }
-function getObjFor(user,k,def={}){ try{ return JSON.parse(localStorage.getItem('mf_'+user+'_'+k))||def; }catch{ return def; } }
+// ── Normalizers: map server field names (_id, category, startDate, targetDate)
+//    to the field names the rest of this app's UI code already expects
+//    (id, cat, date) so almost none of the rendering code below has to change.
+function normalizeAccount(a){ return {id:a._id||a.id,name:a.name,type:a.type,balance:a.balance}; }
+function normalizeTransaction(t){ return {id:t._id||t.id,type:t.type,amount:t.amount,desc:t.desc,acctId:t.accountId,toAcctId:t.toAccountId,date:t.date,cat:t.category}; }
+function normalizeBill(b){ return {id:b._id||b.id,name:b.name,amount:b.amount,date:b.startDate,recur:b.recur,endDate:b.endDate,paid:b.paid}; }
+function normalizePayday(p){ return {id:p._id||p.id,label:p.label,amount:p.amount,date:p.startDate,freq:p.freq,endDate:p.endDate}; }
+function normalizeGoal(g){ return {id:g._id||g.id,name:g.name,type:g.category,target:g.target,saved:g.saved,date:g.targetDate,met:g.met,acctId:g.acctId}; }
+function normalizeBudget(b){ return {id:b._id||b.id,key:b.key,period:b.period,cat:b.cat,amount:b.amount}; }
 
-// Shared connection store (not user-namespaced)
-function getShared(k,def=null){ try{ const v=localStorage.getItem('mf_shared_'+k); return v?JSON.parse(v):def; }catch{ return def; } }
-function setShared(k,v){ localStorage.setItem('mf_shared_'+k,JSON.stringify(v)); }
+async function refreshAccounts(){
+  try{ store.accounts=(await api('GET','/api/accounts')).map(normalizeAccount); }catch(e){}
+}
 
 // ════════════════════════════════════════════════════
 //  AUTH
@@ -889,77 +915,62 @@ function switchAuthTab(mode){
   document.getElementById('auth-error').textContent='';
 }
 
-function handleAuth(){
+async function handleAuth(){
   const username=document.getElementById('auth-username').value.trim().toLowerCase().replace(/\s+/g,'');
   const password=document.getElementById('auth-password').value;
   const err=document.getElementById('auth-error');
+  err.textContent='';
   if(!username||!password){err.textContent='Please fill in all fields.';return;}
-  let users=getAllUsers();
-  if(authMode==='register'){
-    const fullname=document.getElementById('auth-fullname').value.trim();
-    if(!fullname){err.textContent='Please enter your full name.';return;}
-    if(password.length<4){err.textContent='Password must be at least 4 characters.';return;}
-    if(users[username]){err.textContent='Username already taken. Try another.';return;}
-    users[username]={password,fullname};
-    saveAllUsers(users);
-    loginUser(username,fullname);
-  } else {
-    if(!users[username]||users[username].password!==password){err.textContent='Invalid username or password.';return;}
-    loginUser(username,users[username].fullname);
+  const btn=document.getElementById('auth-btn');
+  btn.disabled=true;
+  try{
+    let data;
+    if(authMode==='register'){
+      const fullname=document.getElementById('auth-fullname').value.trim();
+      if(!fullname){err.textContent='Please enter your full name.';btn.disabled=false;return;}
+      if(password.length<4){err.textContent='Password must be at least 4 characters.';btn.disabled=false;return;}
+      data=await api('POST','/api/auth/register',{username,password,fullname});
+    } else {
+      data=await api('POST','/api/auth/login',{username,password});
+    }
+    authToken=data.token;
+    localStorage.setItem('mf_token',authToken);
+    await loginUser(data.user);
+  }catch(e){
+    err.textContent=e.message;
   }
+  btn.disabled=false;
 }
 
-function loginUser(username,fullname){
-  currentUser=username;
-  currentUserFullname=fullname||username;
-  // Persist login across page refresh (localStorage key, not sessionStorage)
-  localStorage.setItem('mf_active_session',username);
+async function loginUser(user){
+  currentUser=user.username;
+  currentUserFullname=user.fullname||user.username;
+  mutualPartner=user.partnerUsername||null;
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').style.display='flex';
-  const initials=(fullname||username).split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const initials=(currentUserFullname||currentUser).split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   document.getElementById('user-avatar').textContent=initials;
-  document.getElementById('um-name').textContent=fullname||username;
-  document.getElementById('um-username').textContent='@'+username;
-  initApp();
+  document.getElementById('um-name').textContent=currentUserFullname;
+  document.getElementById('um-username').textContent='@'+currentUser;
+  checkMutualConnection();
+  await initApp();
 }
 
 function doLogout(){
-  // Clean up any stale shared connection keys for this user
-  _cleanupSharedKeys();
-  localStorage.removeItem('mf_active_session');
+  if(pollTimer) clearInterval(pollTimer);
+  authToken=null;
+  localStorage.removeItem('mf_token');
   location.reload();
 }
 
-function deleteAccount(){
+async function deleteAccount(){
   if(!confirm('Delete your account and ALL your data? This cannot be undone.'))return;
   if(!confirm('Are you absolutely sure? All balances, transactions, goals, and reminders will be permanently deleted.'))return;
-  _cleanupSharedKeys();
-  // Remove all user data keys
-  const keys=Object.keys(localStorage).filter(k=>k.startsWith('mf_'+currentUser+'_'));
-  keys.forEach(k=>localStorage.removeItem(k));
-  // Remove from users list
-  let users=getAllUsers(); delete users[currentUser]; saveAllUsers(users);
-  localStorage.removeItem('mf_active_session');
+  try{ await api('DELETE','/api/auth/account'); }catch(e){ alert(e.message); return; }
+  if(pollTimer) clearInterval(pollTimer);
+  authToken=null;
+  localStorage.removeItem('mf_token');
   location.reload();
-}
-
-function _cleanupSharedKeys(){
-  // Remove expired or orphaned shared connection keys (older than 48h)
-  const cutoff=Date.now()-172800000;
-  const sharedKeys=Object.keys(localStorage).filter(k=>k.startsWith('mf_shared_'));
-  sharedKeys.forEach(k=>{
-    try{
-      const v=JSON.parse(localStorage.getItem(k));
-      // Remove if: belongs to this user, or has a ts and it's expired
-      const isOwn=k.includes('_'+currentUser);
-      const isExpired=v&&v.ts&&v.ts<cutoff;
-      const isNull=v===null;
-      if(isOwn||isExpired||isNull) localStorage.removeItem(k);
-    }catch{ localStorage.removeItem(k); }
-  });
-  // Remove pending connect key for this user
-  localStorage.removeItem('mf_shared_conn_pending_by_'+currentUser);
-  localStorage.removeItem('mf_shared_conn_approved_for_'+currentUser);
 }
 
 // ════════════════════════════════════════════════════
@@ -968,15 +979,69 @@ function _cleanupSharedKeys(){
 let incomeChart,spendingChart,pieChart,goalsChart,mutualChart;
 let currentStatTab='week';
 let currentMutualTab='week';
-let mutualPartner=null;
 
-function initApp(){
+async function initApp(){
   setTodayDates();
-  checkMutualConnection();
+  await loadAllData();
   renderFinancesScreen();
   requestNotificationPermission();
-  checkPendingConnectionRequests();
+  startPolling();
+  await checkIncomingConnectionRequest();
   updateNotifBadge();
+}
+
+async function loadAllData(){
+  try{
+    const[accounts,transactions,bills,paydays,goals,budgets]=await Promise.all([
+      api('GET','/api/accounts'),
+      api('GET','/api/transactions'),
+      api('GET','/api/bills'),
+      api('GET','/api/paydays'),
+      api('GET','/api/goals'),
+      api('GET','/api/budgets'),
+    ]);
+    store.accounts=accounts.map(normalizeAccount);
+    store.transactions=transactions.map(normalizeTransaction);
+    store.bills=bills.map(normalizeBill);
+    store.paydays=paydays.map(normalizePayday);
+    store.goals=goals.map(normalizeGoal);
+    store.budgets=budgets.map(normalizeBudget);
+    if(mutualPartner) await loadPartnerData();
+  }catch(e){
+    showToast('Could not load your data: '+e.message);
+  }
+}
+
+async function loadPartnerData(){
+  try{
+    const data=await api('GET','/api/partner/data');
+    partnerFullname=data.fullname||(data.partner&&data.partner.fullname)||mutualPartner;
+    partnerStore.accounts=(data.accounts||[]).map(normalizeAccount);
+    partnerStore.transactions=(data.transactions||[]).map(normalizeTransaction);
+    partnerStore.bills=(data.bills||[]).map(normalizeBill);
+    partnerStore.paydays=(data.paydays||[]).map(normalizePayday);
+    partnerStore.goals=(data.goals||[]).map(normalizeGoal);
+  }catch(e){ /* partner data optional */ }
+}
+
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    if(!authToken) return;
+    try{
+      const me=await api('GET','/api/auth/me');
+      if(me.partnerUsername&&me.partnerUsername!==mutualPartner){
+        mutualPartner=me.partnerUsername;
+        checkMutualConnection();
+        await loadPartnerData();
+        showToast('Connected with @'+mutualPartner+' 🎉');
+      } else if(!me.partnerUsername&&mutualPartner){
+        mutualPartner=null;
+        checkMutualConnection();
+      }
+      await checkIncomingConnectionRequest();
+    }catch(e){}
+  },20000);
 }
 
 function setTodayDates(){
@@ -1000,6 +1065,19 @@ function sendNotification(title,body){
     new Notification(title,{body,icon:'icon.png'});
   }
 }
+function showToast(msg){
+  let t=document.getElementById('mf-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='mf-toast';
+    t.style.cssText='position:fixed;left:50%;bottom:calc(90px + var(--safe-bottom));transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:10px;font-size:.82rem;z-index:800;opacity:0;transition:opacity .2s;max-width:88vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._hideTimer);
+  t._hideTimer=setTimeout(()=>{t.style.opacity='0';},2800);
+}
 function updateNotifBadge(){
   const bills=getData('bills');
   const today=new Date(); today.setHours(0,0,0,0);
@@ -1008,8 +1086,7 @@ function updateNotifBadge(){
     const diff=Math.ceil((new Date(b.date+'T00:00:00')-today)/86400000);
     return diff>=0&&diff<=7;
   });
-  const pending2=getShared('conn_request_for_'+currentUser);
-  const total=pending.length+(pending2?1:0);
+  const total=pending.length+(incomingPendingReq?1:0);
   const badge=document.getElementById('notif-count');
   if(total>0){badge.textContent=total;badge.style.display='flex';}
   else{badge.style.display='none';}
@@ -1024,6 +1101,7 @@ function toggleBell(){
   if(panel.classList.contains('open')){panel.classList.remove('open');return;}
   renderBellPanel();
   panel.classList.add('open');
+  checkIncomingConnectionRequest().then(renderBellPanel);
 }
 function toggleUserMenu(){
   closePanels('user-dropdown');
@@ -1051,16 +1129,14 @@ function renderBellPanel(){
   let html='<div style="font-weight:700;font-size:.9rem;padding:4px 4px 10px;border-bottom:1px solid var(--border);margin-bottom:8px">Upcoming Reminders</div>';
   let count=0;
 
-  // Check pending connection request for this user
-  const pending=getShared('conn_request_for_'+currentUser);
-  if(pending){
+  if(incomingPendingReq){
     count++;
     html+=`<div class="dropdown-item" style="background:#eff6ff;border-radius:10px;margin-bottom:6px;cursor:pointer"
-      onclick="closePanels('');setTimeout(()=>openApproveModal('${escHtml(pending.from)}'),50)">
+      onclick="closePanels('');setTimeout(()=>openApproveModal('${escHtml(incomingPendingReq.from)}'),50)">
       <span style="font-size:1.2rem">🔗</span>
       <div>
         <div style="font-weight:700;color:#1d4ed8">Connection Request</div>
-        <div style="font-size:.75rem;color:#475569"><strong>@${escHtml(pending.from)}</strong> wants to connect · Tap to review</div>
+        <div style="font-size:.75rem;color:#475569"><strong>@${escHtml(incomingPendingReq.from)}</strong> wants to connect · Tap to review</div>
       </div>
     </div>`;
   }
@@ -1129,7 +1205,6 @@ function populateSelects(){
 // ════════════════════════════════════════════════════
 const screenTitles={finances:'My Finances',stats:'Finance Stats',reminders:'Financial Reminders',goals:'Personal Goals',mutual:'Mutual Finances'};
 function switchScreen(name,el){
-  // Explicitly hide every screen — this is the key fix for screens showing behind each other
   document.querySelectorAll('.screen').forEach(s=>{
     s.classList.remove('active');
     s.style.display='none';
@@ -1143,7 +1218,10 @@ function switchScreen(name,el){
   if(name==='stats') renderStats();
   if(name==='goals') renderGoals();
   if(name==='reminders') renderReminders();
-  if(name==='mutual') renderMutualScreen();
+  if(name==='mutual'){
+    if(mutualPartner) loadPartnerData().then(()=>renderMutualScreen());
+    else renderMutualScreen();
+  }
 }
 function switchToMutual(){ switchScreen('mutual',document.getElementById('mutual-nav-item')); }
 
@@ -1153,28 +1231,31 @@ function switchToMutual(){ switchScreen('mutual',document.getElementById('mutual
 const acctColors={checking:'#2563eb',savings:'#10b981',investment:'#f59e0b',credit:'#ef4444',cash:'#8b5cf6',other:'#64748b'};
 const acctEmojis={checking:'🏦',savings:'💰',investment:'📈',credit:'💳',cash:'💵',other:'🗂️'};
 
-function addAccount(){
+async function addAccount(){
   const name=document.getElementById('acct-name').value.trim();
   const type=document.getElementById('acct-type').value;
   const balance=parseFloat(document.getElementById('acct-balance').value)||0;
   if(!name){alert('Please enter an account name.');return;}
-  const accounts=getData('accounts');
-  accounts.push({id:Date.now().toString(),name,type,balance});
-  setData('accounts',accounts);
+  try{
+    const a=await api('POST','/api/accounts',{name,type,balance});
+    store.accounts.push(normalizeAccount(a));
+  }catch(e){ alert(e.message); return; }
   closeModal('add-account-modal');
   document.getElementById('acct-name').value='';
   document.getElementById('acct-balance').value='';
   renderFinancesScreen();
 }
 
-function updateBalance(){
+async function updateBalance(){
   const id=document.getElementById('upd-acct-select').value;
   const balance=parseFloat(document.getElementById('upd-balance').value);
   if(!id){alert('No accounts to update. Add an account first.');return;}
   if(isNaN(balance)){alert('Please enter a valid amount.');return;}
-  const accounts=getData('accounts');
-  const idx=accounts.findIndex(a=>a.id===id);
-  if(idx>=0){accounts[idx].balance=balance;setData('accounts',accounts);}
+  try{
+    const a=await api('PATCH','/api/accounts/'+id,{balance});
+    const idx=store.accounts.findIndex(x=>x.id===id);
+    if(idx>=0) store.accounts[idx]=normalizeAccount(a);
+  }catch(e){ alert(e.message); return; }
   closeModal('update-balance-modal');
   document.getElementById('upd-balance').value='';
   renderFinancesScreen();
@@ -1199,19 +1280,18 @@ function renderAccountsList(){
 // ════════════════════════════════════════════════════
 //  INCOME & EXPENSES
 // ════════════════════════════════════════════════════
-function addIncome(){
+async function addIncome(){
   const amount=parseFloat(document.getElementById('income-amount').value);
   const desc=document.getElementById('income-desc').value.trim()||'Income';
   const acctId=document.getElementById('income-acct-select').value;
   const date=document.getElementById('income-date').value||today();
   if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
   if(!acctId){alert('Please add an account first.');return;}
-  const transactions=getData('transactions');
-  transactions.push({id:Date.now().toString(),type:'income',amount,desc,acctId,date,cat:'💵 Income'});
-  setData('transactions',transactions);
-  const accounts=getData('accounts');
-  const idx=accounts.findIndex(a=>a.id===acctId);
-  if(idx>=0){accounts[idx].balance+=amount;setData('accounts',accounts);}
+  try{
+    const tx=await api('POST','/api/transactions',{accountId:acctId,type:'income',amount,desc,category:'💵 Income',date});
+    store.transactions.push(normalizeTransaction(tx));
+    await refreshAccounts();
+  }catch(e){ alert(e.message); return; }
   closeModal('add-income-modal');
   document.getElementById('income-amount').value='';
   document.getElementById('income-desc').value='';
@@ -1236,14 +1316,13 @@ function editExpense(id){
 }
 
 function addExpense(){
-  // Reset to add mode then open
   document.getElementById('exp-modal-title').textContent='Add Expense';
   document.getElementById('exp-edit-id').value='';
   document.getElementById('exp-save-btn').textContent='Add Expense';
   openModal('add-expense-modal');
 }
 
-function saveExpense(){
+async function saveExpense(){
   const editId=document.getElementById('exp-edit-id').value;
   const amount=parseFloat(document.getElementById('exp-amount').value);
   const desc=document.getElementById('exp-desc').value.trim()||'Expense';
@@ -1252,29 +1331,17 @@ function saveExpense(){
   const date=document.getElementById('exp-date').value||today();
   if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
   if(!acctId){alert('Please add an account first.');return;}
-  const transactions=getData('transactions');
-  const accounts=getData('accounts');
-  if(editId){
-    // Edit mode: reverse old amount, apply new
-    const oldIdx=transactions.findIndex(t=>t.id===editId);
-    if(oldIdx>=0){
-      const old=transactions[oldIdx];
-      // Reverse old balance change
-      const aidx=accounts.findIndex(a=>a.id===old.acctId);
-      if(aidx>=0){accounts[aidx].balance+=old.amount;}
-      // Apply new
-      const nidx=accounts.findIndex(a=>a.id===acctId);
-      if(nidx>=0){accounts[nidx].balance-=amount;}
-      transactions[oldIdx]={...old,amount,desc,cat,acctId,date};
-      setData('accounts',accounts);
-      setData('transactions',transactions);
+  try{
+    if(editId){
+      const tx=await api('PATCH','/api/transactions/'+editId,{accountId:acctId,type:'expense',amount,desc,category:cat,date});
+      const idx=store.transactions.findIndex(t=>t.id===editId);
+      if(idx>=0) store.transactions[idx]=normalizeTransaction(tx);
+    } else {
+      const tx=await api('POST','/api/transactions',{accountId:acctId,type:'expense',amount,desc,category:cat,date});
+      store.transactions.push(normalizeTransaction(tx));
     }
-  } else {
-    transactions.push({id:Date.now().toString(),type:'expense',amount,desc,acctId,date,cat});
-    setData('transactions',transactions);
-    const idx=accounts.findIndex(a=>a.id===acctId);
-    if(idx>=0){accounts[idx].balance-=amount;setData('accounts',accounts);}
-  }
+    await refreshAccounts();
+  }catch(e){ alert(e.message); return; }
   closeModal('add-expense-modal');
   document.getElementById('exp-amount').value='';
   document.getElementById('exp-desc').value='';
@@ -1301,7 +1368,7 @@ function updateTransferPreview(){
     el.textContent=`Moving $${fmtNum(amt)} from ${fromA.name} ($${fmtNum(fromA.balance)}) → ${toA.name} ($${fmtNum(toA.balance)})`;
   else el.textContent='';
 }
-function doTransfer(){
+async function doTransfer(){
   const fromId=document.getElementById('transfer-from').value;
   const toId=document.getElementById('transfer-to').value;
   const amount=parseFloat(document.getElementById('transfer-amount').value);
@@ -1309,26 +1376,19 @@ function doTransfer(){
   if(!fromId||!toId){alert('Select both accounts.');return;}
   if(fromId===toId){alert('From and To accounts must be different.');return;}
   if(!amount||amount<=0){alert('Enter a valid transfer amount.');return;}
-  const accounts=getData('accounts');
-  const fi=accounts.findIndex(a=>a.id===fromId);
-  const ti=accounts.findIndex(a=>a.id===toId);
-  if(fi<0||ti<0)return;
-  if(accounts[fi].balance<amount&&!confirm(`This will overdraw ${accounts[fi].name}. Continue?`))return;
-  accounts[fi].balance-=amount;
-  accounts[ti].balance+=amount;
-  setData('accounts',accounts);
-  // Log as type:'transfer' — this is INTENTIONALLY excluded from income/expense/budget calculations
-  // The balances are updated above; these records are only for the transaction history display
-  const transactions=getData('transactions');
-  const stamp=Date.now().toString();
-  const desc=note||`Transfer: ${accounts[fi].name} → ${accounts[ti].name}`;
-  transactions.push({id:stamp,type:'transfer',amount,desc,fromAcctId:fromId,toAcctId:toId,date:today(),cat:'🔄 Transfer'});
-  setData('transactions',transactions);
+  const fromAcct=store.accounts.find(a=>a.id===fromId);
+  const toAcct=store.accounts.find(a=>a.id===toId);
+  if(fromAcct&&fromAcct.balance<amount&&!confirm(`This will overdraw ${fromAcct.name}. Continue?`))return;
+  try{
+    const res=await api('POST','/api/accounts/transfer',{fromId,toId,amount,note});
+    store.transactions.push(normalizeTransaction(res.tx));
+    await refreshAccounts();
+  }catch(e){ alert(e.message); return; }
   closeModal('transfer-modal');
   document.getElementById('transfer-amount').value='';
   document.getElementById('transfer-note').value='';
   renderFinancesScreen();
-  showToast(`Transferred $${fmtNum(amount)} from ${accounts[fi].name} to ${accounts[ti].name}`);
+  showToast(`Transferred $${fmtNum(amount)} from ${fromAcct?fromAcct.name:''} to ${toAcct?toAcct.name:''}`);
 }
 function renderFinancesScreen(){
   const accounts=getData('accounts');
@@ -1496,26 +1556,32 @@ function renderMonthlySummary(){
 // ════════════════════════════════════════════════════
 //  BUDGET TRACKER
 // ════════════════════════════════════════════════════
-function saveBudget(){
+async function saveBudget(){
   const amount=parseFloat(document.getElementById('budget-amount').value);
   const period=document.getElementById('budget-period').value;
   const cat=document.getElementById('budget-cat').value;
   if(!amount||amount<=0){alert('Please enter a valid budget amount.');return;}
-  const budgets=getData('budgets');
-  // Update if same period+cat exists, else push
   const key=period+'|'+(cat||'__all__');
-  const idx=budgets.findIndex(b=>b.key===key);
-  const entry={id:idx>=0?budgets[idx].id:Date.now().toString(),key,period,cat,amount};
-  if(idx>=0)budgets[idx]=entry; else budgets.push(entry);
-  setData('budgets',budgets);
+  const existing=store.budgets.find(b=>b.key===key);
+  try{
+    if(existing){
+      const b=await api('PATCH','/api/budgets/'+existing.id,{period,cat,amount});
+      const idx=store.budgets.findIndex(x=>x.id===existing.id);
+      store.budgets[idx]=normalizeBudget(b);
+    } else {
+      const b=await api('POST','/api/budgets',{key,period,cat,amount});
+      store.budgets.push(normalizeBudget(b));
+    }
+  }catch(e){ alert(e.message); return; }
   closeModal('budget-modal');
   document.getElementById('budget-amount').value='';
   renderBudgets();
   showToast('Budget saved ✅');
 }
 
-function deleteBudget(id){
-  setData('budgets',getData('budgets').filter(b=>b.id!==id));
+async function deleteBudget(id){
+  try{ await api('DELETE','/api/budgets/'+id); }catch(e){ alert(e.message); return; }
+  store.budgets=store.budgets.filter(b=>b.id!==id);
   renderBudgets();
 }
 
@@ -1530,7 +1596,6 @@ function renderBudgets(){
   }
   const now=new Date();
   el.innerHTML=budgets.map(b=>{
-    // Calculate current spend for this period and category — exclude transfers
     let filtered=transactions.filter(t=>t.type==='expense');
     if(b.cat)filtered=filtered.filter(t=>t.cat===b.cat);
     if(b.period==='weekly'){
@@ -1570,7 +1635,11 @@ function renderBudgets(){
     </div>`;
   }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
 }
-function addBill(){
+
+// ════════════════════════════════════════════════════
+//  BILLS & PAYDAYS
+// ════════════════════════════════════════════════════
+async function addBill(){
   const name=document.getElementById('bill-name').value.trim();
   const amount=parseFloat(document.getElementById('bill-amount').value)||0;
   const date=document.getElementById('bill-date').value;
@@ -1578,9 +1647,10 @@ function addBill(){
   const endDate=document.getElementById('bill-end-date').value||null;
   if(!name){alert('Please enter a bill name.');return;}
   if(!date){alert('Please select a due date.');return;}
-  const bills=getData('bills');
-  bills.push({id:Date.now().toString(),name,amount,date,recur,endDate,paid:false});
-  setData('bills',bills);
+  try{
+    const b=await api('POST','/api/bills',{name,amount,startDate:date,recur,endDate,paid:false});
+    store.bills.push(normalizeBill(b));
+  }catch(e){ alert(e.message); return; }
   closeModal('add-bill-modal');
   document.getElementById('bill-name').value='';
   document.getElementById('bill-amount').value='';
@@ -1589,31 +1659,44 @@ function addBill(){
   sendNotification('Bill Reminder Added',name+' added — due '+fmtDateLong(date));
 }
 
-function addPayday(){
+async function addPayday(){
   const label=document.getElementById('pay-label').value.trim()||'Payday';
   const amount=parseFloat(document.getElementById('pay-amount').value)||0;
   const date=document.getElementById('pay-date').value;
   const freq=document.getElementById('pay-freq').value;
   const endDate=document.getElementById('pay-end-date').value||null;
   if(!date){alert('Please select a date.');return;}
-  const paydays=getData('paydays');
-  paydays.push({id:Date.now().toString(),label,amount,date,freq,endDate});
-  setData('paydays',paydays);
+  try{
+    const p=await api('POST','/api/paydays',{label,amount,startDate:date,freq,endDate});
+    store.paydays.push(normalizePayday(p));
+  }catch(e){ alert(e.message); return; }
   closeModal('add-payday-modal');
   document.getElementById('pay-label').value='';
   document.getElementById('pay-amount').value='';
   renderReminders();
 }
 
-function markBillPaid(id){
-  const bills=getData('bills');
-  const idx=bills.findIndex(b=>b.id===id);
-  if(idx>=0){bills[idx].paid=!bills[idx].paid;setData('bills',bills);}
+async function markBillPaid(id){
+  const bill=store.bills.find(b=>b.id===id);
+  if(!bill)return;
+  try{
+    const b=await api('PATCH','/api/bills/'+id,{paid:!bill.paid});
+    const idx=store.bills.findIndex(x=>x.id===id);
+    store.bills[idx]=normalizeBill(b);
+  }catch(e){ alert(e.message); return; }
   renderReminders();
   updateNotifBadge();
 }
-function deleteBill(id){setData('bills',getData('bills').filter(b=>b.id!==id));renderReminders();updateNotifBadge();}
-function deletePayday(id){setData('paydays',getData('paydays').filter(p=>p.id!==id));renderReminders();}
+async function deleteBill(id){
+  try{ await api('DELETE','/api/bills/'+id); }catch(e){ alert(e.message); return; }
+  store.bills=store.bills.filter(b=>b.id!==id);
+  renderReminders();updateNotifBadge();
+}
+async function deletePayday(id){
+  try{ await api('DELETE','/api/paydays/'+id); }catch(e){ alert(e.message); return; }
+  store.paydays=store.paydays.filter(p=>p.id!==id);
+  renderReminders();
+}
 
 function renderReminders(){
   const bills=getData('bills');
@@ -1676,7 +1759,7 @@ function renderReminders(){
 // ════════════════════════════════════════════════════
 //  SAVINGS GOALS
 // ════════════════════════════════════════════════════
-function addGoal(){
+async function addGoal(){
   const name=document.getElementById('goal-name').value.trim();
   const type=document.getElementById('goal-type').value;
   const target=parseFloat(document.getElementById('goal-target').value)||0;
@@ -1685,9 +1768,10 @@ function addGoal(){
   const date=document.getElementById('goal-date').value||null;
   if(!name){alert('Please enter a goal name.');return;}
   if(!target||target<=0){alert('Please enter a target amount.');return;}
-  const goals=getData('goals');
-  goals.push({id:Date.now().toString(),name,type,target,saved:start,acctId,date,met:false});
-  setData('goals',goals);
+  try{
+    const g=await api('POST','/api/goals',{name,category:type,target,saved:start,targetDate:date,acctId});
+    store.goals.push(normalizeGoal(g));
+  }catch(e){ alert(e.message); return; }
   closeModal('add-goal-modal');
   document.getElementById('goal-name').value='';
   document.getElementById('goal-target').value='';
@@ -1709,7 +1793,7 @@ function openEditGoal(id){
   openModal('edit-goal-modal');
 }
 
-function saveGoalEdit(){
+async function saveGoalEdit(){
   const id=document.getElementById('eg-id').value;
   const name=document.getElementById('eg-name').value.trim();
   const type=document.getElementById('eg-type').value;
@@ -1717,33 +1801,40 @@ function saveGoalEdit(){
   const saved=parseFloat(document.getElementById('eg-saved').value)||0;
   const date=document.getElementById('eg-date').value||null;
   if(!name||!target){alert('Please fill in all required fields.');return;}
-  const goals=getData('goals');
-  const idx=goals.findIndex(g=>g.id===id);
-  if(idx>=0){goals[idx]={...goals[idx],name,type,target,saved:Math.min(saved,target),date};}
-  setData('goals',goals);
+  try{
+    const g=await api('PATCH','/api/goals/'+id,{name,category:type,target,saved:Math.min(saved,target),targetDate:date});
+    const idx=store.goals.findIndex(x=>x.id===id);
+    if(idx>=0) store.goals[idx]=normalizeGoal(g);
+  }catch(e){ alert(e.message); return; }
   closeModal('edit-goal-modal');
   renderGoals();
   showToast('Goal updated ✅');
 }
 
-function contributeToGoal(){
+async function contributeToGoal(){
   const id=document.getElementById('contrib-goal-select').value;
   const amount=parseFloat(document.getElementById('contrib-amount').value)||0;
   if(!id){alert('Please create a goal first.');return;}
   if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
-  const goals=getData('goals');
-  const idx=goals.findIndex(g=>g.id===id);
-  if(idx>=0){goals[idx].saved=Math.min(goals[idx].saved+amount,goals[idx].target);setData('goals',goals);}
+  const goal=store.goals.find(g=>g.id===id);
+  if(!goal)return;
+  const newSaved=Math.min(goal.saved+amount,goal.target);
+  try{
+    const g=await api('PATCH','/api/goals/'+id,{saved:newSaved});
+    const idx=store.goals.findIndex(x=>x.id===id);
+    store.goals[idx]=normalizeGoal(g);
+  }catch(e){ alert(e.message); return; }
   closeModal('contribute-modal');
   document.getElementById('contrib-amount').value='';
   renderGoals();
-  const g=goals[idx];
+  const g=store.goals.find(x=>x.id===id);
   if(g&&g.saved>=g.target) sendNotification('Goal Reached! 🎉',g.name+' is fully funded!');
 }
 
-function deleteGoal(id){
+async function deleteGoal(id){
   if(!confirm('Delete this savings goal?'))return;
-  setData('goals',getData('goals').filter(g=>g.id!==id));
+  try{ await api('DELETE','/api/goals/'+id); }catch(e){ alert(e.message); return; }
+  store.goals=store.goals.filter(g=>g.id!==id);
   renderGoals();
 }
 
@@ -1797,7 +1888,6 @@ function renderGoals(){
 function renderAccountUsageChart(goals,accounts){
   const usageCard=document.getElementById('acct-usage-card');
   const usageList=document.getElementById('acct-usage-list');
-  // Group goal savings by linked account
   const byAcct={};
   goals.forEach(g=>{
     if(g.acctId&&g.saved>0){
@@ -1812,7 +1902,6 @@ function renderAccountUsageChart(goals,accounts){
     if(!acct)return'';
     const pct=acct.balance+totalSaved>0?Math.min(Math.round(totalSaved/(acct.balance+totalSaved)*100),100):0;
     const color=COLORS[i%COLORS.length];
-    // Goals linked to this account
     const linked=goals.filter(g=>g.acctId===acctId&&g.saved>0);
     return`<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -1853,261 +1942,113 @@ function renderGoalsChart(goals){
 // ════════════════════════════════════════════════════
 //  USER ACCOUNT MANAGEMENT
 // ════════════════════════════════════════════════════
-function changePassword(){
+async function changePassword(){
   const cur=document.getElementById('cp-current').value;
   const nw=document.getElementById('cp-new').value;
   const conf=document.getElementById('cp-confirm').value;
   const err=document.getElementById('cp-error');
-  const users=getAllUsers();
-  if(users[currentUser].password!==cur){err.textContent='Current password is incorrect.';return;}
+  err.textContent='';
   if(nw.length<4){err.textContent='New password must be at least 4 characters.';return;}
   if(nw!==conf){err.textContent='New passwords do not match.';return;}
-  users[currentUser].password=nw;
-  saveAllUsers(users);
+  try{
+    await api('POST','/api/auth/change-password',{currentPassword:cur,newPassword:nw});
+  }catch(e){ err.textContent=e.message; return; }
   closeModal('change-password-modal');
   ['cp-current','cp-new','cp-confirm'].forEach(id=>document.getElementById(id).value='');
-  err.textContent='';
   alert('Password changed successfully!');
 }
 
 // ════════════════════════════════════════════════════
 //  MUTUAL FINANCES — CONNECTION
-//  HOW IT WORKS ACROSS DEVICES:
-//  1. User A enters User B's username → gets a 6-digit code + shareable link
-//  2. User A shares the link (or code) with User B via text/email
-//  3. User B opens the link on their device → approval modal auto-opens
-//  4. User B enters the code → both devices are now linked
-//  5. User A opens a "completion link" that User B's device generates
-//  This works because the connection data is encoded directly in the URL
+//  Connection requests and approvals now live on the server
+//  (MongoDB), so it genuinely works across two different
+//  devices/accounts — no link-sharing hacks needed.
 // ════════════════════════════════════════════════════
 function checkMutualConnection(){
-  const conn=getObj('mutual_partner',null);
-  if(conn&&conn.partner){
-    mutualPartner=conn.partner;
-    document.getElementById('mutual-nav-item').style.display='flex';
-    document.getElementById('um-mutual-link').style.display='flex';
-  }
-  // Check if this page was opened via a connection link
-  _handleConnectURL();
-}
-
-function _handleConnectURL(){
-  const params=new URLSearchParams(window.location.search);
-
-  // Incoming request link: ?mfreq=<base64data>
-  const reqParam=params.get('mfreq');
-  if(reqParam){
-    try{
-      const data=JSON.parse(atob(reqParam));
-      if(!data.from||!data.code){return;}
-      // Store in sessionStorage so it survives login redirect on this device
-      sessionStorage.setItem('mf_pending_req',JSON.stringify(data));
-      window.history.replaceState({},'',window.location.pathname);
-      // If the intended recipient is already logged in, open the modal immediately
-      if(data.to&&data.to===currentUser){
-        setShared('conn_request_for_'+currentUser,{from:data.from,code:data.code,ts:Date.now()});
-        window._pendingConnReq={from:data.from,code:data.code};
-        updateNotifBadge();
-        setTimeout(()=>openApproveModal(data.from),400);
-      }
-      // Otherwise, checkPendingConnectionRequests() will pick it up after login
-    }catch(e){}
-    return;
-  }
-
-  // Completion link: ?mfconn=<base64data>
-  const connParam=params.get('mfconn');
-  if(connParam){
-    try{
-      const data=JSON.parse(atob(connParam));
-      if(data.you===currentUser&&data.partner){
-        setObj('mutual_partner',{partner:data.partner});
-        mutualPartner=data.partner;
-        document.getElementById('mutual-nav-item').style.display='flex';
-        document.getElementById('um-mutual-link').style.display='flex';
-        window.history.replaceState({},'',window.location.pathname);
-        showToast('Connected with @'+data.partner+' 🎉');
-      } else if(data.you&&data.partner){
-        // Store for after login
-        sessionStorage.setItem('mf_pending_conn',JSON.stringify(data));
-        window.history.replaceState({},'',window.location.pathname);
-      }
-    }catch(e){}
-  }
+  const connected=!!mutualPartner;
+  document.getElementById('mutual-nav-item').style.display=connected?'flex':'none';
+  document.getElementById('um-mutual-link').style.display=connected?'flex':'none';
+  document.getElementById('um-disconnect-link').style.display=connected?'flex':'none';
+  document.getElementById('um-connect-link').style.display=connected?'none':'flex';
 }
 
 function openConnectFlow(){
   document.getElementById('connect-error').textContent='';
   document.getElementById('connect-username').value='';
-  // Reset to step 1
   document.getElementById('conn-step1').style.display='block';
   document.getElementById('conn-step2').style.display='none';
   openModal('connect-modal');
 }
 
-function sendConnectRequest(){
+async function sendConnectRequest(){
   const target=document.getElementById('connect-username').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
   const err=document.getElementById('connect-error');
   err.textContent='';
   if(!target){err.textContent='Please enter a username.';return;}
   if(target===currentUser){err.textContent='You cannot connect with yourself.';return;}
-  const existing=getObj('mutual_partner',null);
-  if(existing&&existing.partner){err.textContent='Already connected to @'+existing.partner+'. Disconnect first.';return;}
-  // Generate a 6-digit code
-  const code=String(Math.floor(100000+Math.random()*900000));
-  // Store pending so we can finalize once approved
-  setShared('conn_pending_by_'+currentUser,{to:target,code,ts:Date.now()});
-  // Build shareable link — encodes everything the partner needs, no shared database required
-  const base=window.location.href.split('?')[0];
-  const payload=btoa(JSON.stringify({from:currentUser,to:target,code}));
-  const link=base+'?mfreq='+payload;
-  // Show step 2 with the code and link
-  document.getElementById('conn-code-display').textContent=code;
-  document.getElementById('conn-share-link').value=link;
-  document.getElementById('conn-step1').style.display='none';
-  document.getElementById('conn-step2').style.display='block';
+  try{
+    const res=await api('POST','/api/partner/request',{targetUsername:target});
+    document.getElementById('conn-code-display').textContent=res.code;
+    document.getElementById('conn-step1').style.display='none';
+    document.getElementById('conn-step2').style.display='block';
+  }catch(e){ err.textContent=e.message; }
 }
 
-function copyConnectLink(){
-  const link=document.getElementById('conn-share-link').value;
+function copyConnectCode(){
+  const code=document.getElementById('conn-code-display').textContent;
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(link).then(()=>showToast('Link copied! Send it to your partner 📋')).catch(()=>_fallbackCopy(link));
-  } else { _fallbackCopy(link); }
-}
-function _fallbackCopy(text){
-  const el=document.getElementById('conn-share-link');
-  el.select(); el.setSelectionRange(0,9999);
-  try{ document.execCommand('copy'); showToast('Link copied! Send it to your partner 📋'); }catch(e){ showToast('Copy the link above manually'); }
+    navigator.clipboard.writeText(code).then(()=>showToast('Code copied! Send it to your partner 📋')).catch(()=>showToast('Copy the code above manually'));
+  } else { showToast('Copy the code above manually'); }
 }
 
-function checkPendingConnectionRequests(){
-  // ── Case 1: Arrived via ?mfreq= link before logging in ──────────────────
-  // The link data was stashed in sessionStorage by _handleConnectURL
-  const pendingReqRaw=sessionStorage.getItem('mf_pending_req');
-  if(pendingReqRaw){
-    try{
-      const data=JSON.parse(pendingReqRaw);
-      // Only use it if it's addressed to the now-logged-in user
-      if(data.to===currentUser&&data.from&&data.code){
-        setShared('conn_request_for_'+currentUser,{from:data.from,code:data.code,ts:Date.now()});
-        window._pendingConnReq={from:data.from,code:data.code};
-        sessionStorage.removeItem('mf_pending_req');
-        updateNotifBadge();
-        setTimeout(()=>openApproveModal(data.from),500);
-        return;
-      }
-    }catch{}
-    sessionStorage.removeItem('mf_pending_req');
-  }
-
-  // ── Case 2: Arrived via ?mfconn= link before logging in ─────────────────
-  const pendingConnRaw=sessionStorage.getItem('mf_pending_conn');
-  if(pendingConnRaw){
-    try{
-      const data=JSON.parse(pendingConnRaw);
-      if(data.you===currentUser&&data.partner){
-        setObj('mutual_partner',{partner:data.partner});
-        mutualPartner=data.partner;
-        document.getElementById('mutual-nav-item').style.display='flex';
-        document.getElementById('um-mutual-link').style.display='flex';
-        sessionStorage.removeItem('mf_pending_conn');
-        showToast('Connected with @'+data.partner+' 🎉');
-        return;
-      }
-    }catch{}
-    sessionStorage.removeItem('mf_pending_conn');
-  }
-
-  // ── Case 3: Same-device shared key (both users on same device) ──────────
-  const raw=localStorage.getItem('mf_shared_conn_request_for_'+currentUser);
-  if(raw){
-    try{
-      const req=JSON.parse(raw);
-      if(req&&req.ts&&Date.now()-req.ts<86400000){
-        window._pendingConnReq=req;
-        updateNotifBadge();
-      } else {
-        localStorage.removeItem('mf_shared_conn_request_for_'+currentUser);
-      }
-    }catch{}
-  }
-}
-
-function openApproveModal(requester){
-  // Pull the pending request from: shared storage OR the in-memory cache set by _handleConnectURL
-  const req=getShared('conn_request_for_'+currentUser)||window._pendingConnReq||null;
-  if(!req){
-    // No data found — show the modal anyway with just the requester name so the user can type the code manually
-    window._pendingConnReq={from:requester,code:null};
-  } else {
-    window._pendingConnReq=req;
-  }
-  const fromName=req?req.from:requester;
-  document.getElementById('approve-requester').textContent='@'+escHtml(fromName);
-  document.getElementById('approve-code-input').value='';
-  document.getElementById('approve-code-input').placeholder='Enter the 6-digit code from @'+escHtml(fromName);
-  // Open the modal directly (don't call openModal which runs populateSelects)
-  document.getElementById('approve-modal').classList.add('open');
+async function checkIncomingConnectionRequest(){
+  try{
+    const res=await api('GET','/api/partner/incoming');
+    incomingPendingReq=res.pending||null;
+  }catch(e){ incomingPendingReq=null; }
   updateNotifBadge();
 }
 
-function checkApprovalCode(){
+function openApproveModal(fromUsername){
+  document.getElementById('approve-requester').textContent='@'+escHtml(fromUsername);
+  document.getElementById('approve-code-input').value='';
+  document.getElementById('approve-code-input').placeholder='Enter the 6-digit code from @'+escHtml(fromUsername);
+  document.getElementById('approve-modal').classList.add('open');
+}
+
+async function checkApprovalCode(){
+  if(!incomingPendingReq){alert('No pending request found.');closeModal('approve-modal');return;}
   const entered=document.getElementById('approve-code-input').value.trim();
   if(!entered||entered.length<4){alert('Please enter the 6-digit code shared by your partner.');return;}
-
-  const req=window._pendingConnReq||getShared('conn_request_for_'+currentUser);
-  if(!req||!req.from){alert('No pending request found. Please ask your partner to share the link or code again.');closeModal('approve-modal');return;}
-
-  // If we have the expected code stored (came via link), validate it
-  if(req.code&&entered!==req.code){
-    alert('Incorrect code. Double-check the 6-digit code with @'+req.from+' and try again.');
-    return;
-  }
-
-  // ✅ Code matches (or no stored code to compare — trust user entry)
-  // Save connection on this device
-  setObj('mutual_partner',{partner:req.from});
-  setShared('conn_request_for_'+currentUser,null);
-  // Update users registry so same-device access also works
-  const users=getAllUsers();
-  if(users[currentUser]) users[currentUser].partnerUsername=req.from;
-  if(users[req.from])    users[req.from].partnerUsername=currentUser;
-  saveAllUsers(users);
-  mutualPartner=req.from;
-  window._pendingConnReq=null;
-
-  // Show Mutual Finances tab
-  document.getElementById('mutual-nav-item').style.display='flex';
-  document.getElementById('um-mutual-link').style.display='flex';
-  closeModal('approve-modal');
-  updateNotifBadge();
-
-  // Build a completion link for the requester's device and prompt to share it
-  const base=window.location.href.split('?')[0];
-  const payload=btoa(JSON.stringify({you:req.from,partner:currentUser}));
-  const doneLink=base+'?mfconn='+payload;
-  showToast('Connected with @'+req.from+' 🎉');
-
-  setTimeout(()=>{
-    const msg='✅ Connected!\n\nSend this link to @'+req.from+' so their device also shows the Mutual Finances tab:\n\n'+doneLink+'\n\nTap OK to copy it.';
-    if(confirm(msg)){
-      if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(doneLink)
-          .then(()=>showToast('Link copied — send it to @'+req.from+' 📋'))
-          .catch(()=>prompt('Copy this link and send it to @'+req.from+':',doneLink));
-      } else {
-        prompt('Copy this link and send it to @'+req.from+':',doneLink);
-      }
-    }
-  },300);
+  try{
+    const res=await api('POST','/api/partner/approve',{fromUsername:incomingPendingReq.from,code:entered});
+    mutualPartner=res.partnerUsername;
+    incomingPendingReq=null;
+    checkMutualConnection();
+    closeModal('approve-modal');
+    updateNotifBadge();
+    showToast('Connected with @'+mutualPartner+' 🎉');
+    await loadPartnerData();
+  }catch(e){ alert(e.message); }
 }
 
-function denyConnection(){
-  const req=getShared('conn_request_for_'+currentUser);
-  if(req) setShared('conn_request_for_'+currentUser,null);
-  window._pendingConnReq=null;
+async function denyConnection(){
+  if(incomingPendingReq){
+    try{ await api('POST','/api/partner/deny',{fromUsername:incomingPendingReq.from}); }catch(e){}
+  }
+  incomingPendingReq=null;
   closeModal('approve-modal');
   updateNotifBadge();
+}
+
+async function disconnectPartner(){
+  if(!mutualPartner)return;
+  if(!confirm('Disconnect from @'+mutualPartner+'? You can reconnect later.'))return;
+  try{ await api('POST','/api/partner/disconnect'); }catch(e){ alert(e.message); return; }
+  mutualPartner=null;
+  partnerStore={accounts:[],transactions:[],bills:[],paydays:[],goals:[]};
+  checkMutualConnection();
+  showToast('Disconnected.');
 }
 
 // ════════════════════════════════════════════════════
@@ -2126,13 +2067,12 @@ function renderMutualScreen(){
     document.getElementById('screen-mutual').innerHTML='<div class="empty-state" style="padding:3rem 1rem"><div class="empty-icon">👫</div><p>No partner connected yet.<br/>Tap your avatar → Connect with Another User.</p></div>';
     return;
   }
-  const users=getAllUsers();
   const myAccounts=getData('accounts');
   const partnerAccounts=getDataFor(mutualPartner,'accounts');
   const myTotal=myAccounts.reduce((s,a)=>s+a.balance,0);
   const partnerTotal=partnerAccounts.reduce((s,a)=>s+a.balance,0);
-  const myName=users[currentUser]?.fullname||currentUser;
-  const partnerName=users[mutualPartner]?.fullname||mutualPartner;
+  const myName=currentUserFullname||currentUser;
+  const partnerName=partnerFullname||mutualPartner;
 
   document.getElementById('mutual-combined-total').textContent='$'+fmtNum(myTotal+partnerTotal);
   document.getElementById('mutual-user1-name').textContent=myName;
@@ -2188,7 +2128,6 @@ function renderMutualSummary(){
 }
 
 function renderMutualTransactions(myName,partnerName){
-  const users=getAllUsers();
   const myTx=getData('transactions').map(t=>({...t,who:myName}));
   const partTx=getDataFor(mutualPartner,'transactions').map(t=>({...t,who:partnerName}));
   const all=[...myTx,...partTx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
@@ -2231,9 +2170,10 @@ function renderMutualReminders(myName,partnerName){
 
 // ════════════════════════════════════════════════════
 //  AI SPENDING ANALYSIS ENGINE
+//  Calls our own server's /api/ai/analyze, which proxies to
+//  Claude using a server-side API key. Falls back to a local
+//  heuristic analysis if that endpoint isn't configured.
 // ════════════════════════════════════════════════════
-
-// Auto-render the category bars whenever stats screen is shown
 function renderCategoryBars(){
   const transactions=getData('transactions');
   const now=new Date();
@@ -2262,7 +2202,6 @@ function renderCategoryBars(){
 }
 
 function renderTrendIndicators(transactions,now,mk){
-  // Compare this month vs last month
   const lastMonth=new Date(now.getFullYear(),now.getMonth()-1,1);
   const lmk=lastMonth.getFullYear()+'-'+String(lastMonth.getMonth()+1).padStart(2,'0');
   const thisExp=transactions.filter(t=>t.type==='expense'&&t.date&&t.date.startsWith(mk)).reduce((s,t)=>s+t.amount,0);
@@ -2306,7 +2245,6 @@ async function runSpendingAnalysis(){
   const loadEl=document.getElementById('ai-loading');
   const loadMsg=document.getElementById('ai-loading-msg');
 
-  // Show loading
   btn.disabled=true; btn.textContent='Analyzing…';
   loadEl.style.display='block';
   bodyEl.style.display='none';
@@ -2316,9 +2254,7 @@ async function runSpendingAnalysis(){
   const goals=getData('goals');
   const bills=getData('bills');
   const now=new Date();
-  const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 
-  // Build last 3 months of data
   const months=[];
   for(let i=2;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
@@ -2331,7 +2267,6 @@ async function runSpendingAnalysis(){
     months.push({label,income:mInc,expense:mExp,cats:mCats,saved:mInc-mExp});
   }
 
-  // Category totals (all time)
   const allCats={};
   transactions.filter(t=>t.type==='expense').forEach(t=>{allCats[t.cat||'Other']=(allCats[t.cat||'Other']||0)+t.amount;});
   const topCats=Object.entries(allCats).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -2389,16 +2324,7 @@ Keep everything under 400 words total. Use the actual dollar figures throughout.
 
   try{
     loadMsg.textContent='Claude is analyzing your habits…';
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await res.json();
+    const data=await api('POST','/api/ai/analyze',{prompt});
     if(data.content&&data.content[0]){
       const text=data.content[0].text;
       loadEl.style.display='none';
@@ -2506,7 +2432,6 @@ function animateScore(scoreData){
 }
 
 function renderAnalysisHTML(rawText){
-  // Skip the ⭐ SCORE block — already rendered in the gauge widget
   const withoutScore=rawText.replace(/\*\*⭐ SCORE\*\*[\s\S]*?(?=\*\*🔍|\*\*📊|\*\*📈|\*\*💡|\*\*🎯|$)/,'');
   const sections=withoutScore.split(/\n(?=\*\*[^*]+\*\*)/);
   const sectionColors={
@@ -2547,7 +2472,7 @@ function renderFallbackAnalysis(months,topCats,totalBalance,upcomingBills,active
       <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">🔍 Spending Pattern Summary</div>
       <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
         ${curr.income>0?`This month you earned $${fmtNum(curr.income)} and spent $${fmtNum(curr.expense)}, leaving a net of $${fmtNum(curr.saved)}.`:'No transactions recorded this month yet.'}
-        ${rate>=20?` Your ${rate}% savings rate is excellent — you\'re building real financial security.`:rate>0?` Your current savings rate is ${rate}%. The goal is 20% or higher.`:' Start logging income and expenses to unlock your full analysis.'}
+        ${rate>=20?` Your ${rate}% savings rate is excellent — you're building real financial security.`:rate>0?` Your current savings rate is ${rate}%. The goal is 20% or higher.`:' Start logging income and expenses to unlock your full analysis.'}
       </div>
     </div>
     ${topCats.length?`<div style="background:#ede9fe;border-radius:12px;padding:12px 14px;margin-bottom:8px">
@@ -2568,7 +2493,7 @@ function renderFallbackAnalysis(months,topCats,totalBalance,upcomingBills,active
       <div style="font-size:.78rem;font-weight:700;color:#1e3a8a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">💡 Top Recommendations</div>
       <div style="font-size:.84rem;color:#1e293b;line-height:1.6">
         <span style="font-weight:700;color:#1e40af">1.</span> ${topCats[0]?`Set a monthly budget cap for ${escHtml(topCats[0][0])} — your highest expense category.`:'Start by logging every transaction for one week to see where money goes.'}<br>
-        <span style="font-weight:700;color:#1e40af">2.</span> ${upcomingBills>0?`You have $${fmtNum(upcomingBills)} in upcoming bills — make sure that\'s reserved in your checking account.`:'Use the Reminders tab to track upcoming bills so nothing catches you off guard.'}<br>
+        <span style="font-weight:700;color:#1e40af">2.</span> ${upcomingBills>0?`You have $${fmtNum(upcomingBills)} in upcoming bills — make sure that's reserved in your checking account.`:'Use the Reminders tab to track upcoming bills so nothing catches you off guard.'}<br>
         <span style="font-weight:700;color:#1e40af">3.</span> ${rate<20&&curr.income>0?`To reach a 20% savings rate, aim to save $${fmtNum(curr.income*0.2)} of your $${fmtNum(curr.income)} income each month.`:'Review your spending weekly — catching overspending early is the most powerful habit.'}
       </div>
     </div>
@@ -2579,7 +2504,7 @@ function renderFallbackAnalysis(months,topCats,totalBalance,upcomingBills,active
         ${rate>=20?' Keep up your current savings rate and you\'re on track!':' Boosting your savings rate to 20% will help you reach your goals faster.'}
       </div>
     </div>`:''}
-    <div style="font-size:.72rem;color:#94a3b8;text-align:center;margin-top:8px">Score &amp; analysis based on your data · Connect to internet for Claude AI insights</div>
+    <div style="font-size:.72rem;color:#94a3b8;text-align:center;margin-top:8px">Score &amp; analysis based on your data</div>
   </div>`;
 }
 
@@ -2620,41 +2545,19 @@ if('serviceWorker' in navigator){
 }
 
 // ════════════════════════════════════════════════════
-//  EARLY URL HANDLER — runs before auth so link data
-//  is captured into sessionStorage even if not logged in
+//  AUTO-LOGIN (persist across refreshes on THIS device)
+//  Validates the saved token against the server — if it's
+//  expired or invalid, it's cleared and the auth screen shows.
 // ════════════════════════════════════════════════════
-(function(){
-  const params=new URLSearchParams(window.location.search);
-  const reqParam=params.get('mfreq');
-  if(reqParam){
+(async function(){
+  if(authToken){
     try{
-      const data=JSON.parse(atob(reqParam));
-      if(data.from&&data.code){
-        sessionStorage.setItem('mf_pending_req',JSON.stringify(data));
-        window.history.replaceState({},'',window.location.pathname);
-      }
-    }catch{}
-  }
-  const connParam=params.get('mfconn');
-  if(connParam){
-    try{
-      const data=JSON.parse(atob(connParam));
-      if(data.you&&data.partner){
-        sessionStorage.setItem('mf_pending_conn',JSON.stringify(data));
-        window.history.replaceState({},'',window.location.pathname);
-      }
-    }catch{}
-  }
-})();
-
-// ════════════════════════════════════════════════════
-//  AUTO-LOGIN (persist across refreshes)
-// ════════════════════════════════════════════════════
-(function(){
-  const saved=localStorage.getItem('mf_active_session');
-  if(saved){
-    const users=getAllUsers();
-    if(users[saved])loginUser(saved,users[saved].fullname);
+      const user=await api('GET','/api/auth/me');
+      await loginUser(user);
+    }catch(e){
+      authToken=null;
+      localStorage.removeItem('mf_token');
+    }
   }
 })();
 </script>

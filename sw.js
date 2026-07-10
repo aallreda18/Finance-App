@@ -1,4 +1,4 @@
-const CACHE = 'myfinances-v1';
+const CACHE = 'myfinances-v2';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -12,6 +12,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Never cache API calls — they must always hit the live server.
+  if (e.request.url.includes('/api/')) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       return cached || fetch(e.request).catch(() => caches.match('/index.html'));

@@ -22,6 +22,9 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── MongoDB ───────────────────────────────────────────────────────────────
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️  No MONGODB_URI set — falling back to localhost, which will NOT work once deployed. Set MONGODB_URI (e.g. a MongoDB Atlas connection string) in your host\'s environment variables.');
+}
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/myfinances')
   .then(() => console.log('✅  MongoDB connected'))
   .catch(err => console.error('❌  MongoDB error:', err.message));
@@ -59,7 +62,10 @@ app.post('/api/auth/register', async (req, res) => {
     const user = await User.create({ username: clean, password: hash, fullname });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
     res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error('Register error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Login
@@ -278,7 +284,6 @@ app.get('/api/goals', auth, async (req, res) => {
 // Mutual goals: goals where this user OR their partner created them and isMutual=true
 app.get('/api/mutual-goals', auth, async (req, res) => {
   try {
-    const me = await User.findById(req.user.id);
     const query = {
       isMutual: true,
       $or: [
@@ -296,7 +301,6 @@ app.post('/api/goals', auth, async (req, res) => {
 app.patch('/api/goals/:id', auth, async (req, res) => {
   try {
     // Allow update if owner OR if partner on a mutual goal
-    const me = await User.findById(req.user.id);
     const goal = await Goal.findOne({
       _id: req.params.id,
       $or: [{ userId: req.user.id }, { partnerUsername: req.user.username }]
@@ -370,33 +374,40 @@ app.post('/api/partner/request', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Check for a pending incoming request (used by the bell notification)
+app.get('/api/partner/incoming', auth, async (req, res) => {
+  try {
+    const pending = await ConnectRequest.findOne({
+      toUsername: req.user.username,
+      status: 'pending',
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+    res.json({ pending: pending ? { from: pending.fromUsername } : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Approve a connection request
 app.post('/api/partner/approve', auth, async (req, res) => {
   try {
     const { fromUsername, code } = req.body;
-    // Find the pending request
+    if (!fromUsername || !code) return res.status(400).json({ error: 'Missing fromUsername or code' });
+    // Find the pending request — it MUST exist and MUST match, otherwise reject.
     const connReq = await ConnectRequest.findOne({
       fromUsername,
       toUsername: req.user.username,
       status: 'pending',
+      expiresAt: { $gt: new Date() },
     });
-    // Validate code (if we have a stored one), or trust the frontend URL-encoded code
-    if (connReq && code !== connReq.code)
+    if (!connReq)
+      return res.status(404).json({ error: 'No pending request found from that user. Ask them to send a new one.' });
+    if (code !== connReq.code)
       return res.status(400).json({ error: 'Incorrect code' });
     // Connect both users
     await User.findOneAndUpdate({ username: req.user.username }, { partnerUsername: fromUsername });
     await User.findOneAndUpdate({ username: fromUsername },      { partnerUsername: req.user.username });
-    if (connReq) { connReq.status = 'approved'; await connReq.save(); }
+    connReq.status = 'approved';
+    await connReq.save();
     res.json({ ok: true, partnerUsername: fromUsername });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Finalize connection on the requester's device (called when they open the completion link)
-app.post('/api/partner/finalize', auth, async (req, res) => {
-  try {
-    const { partnerUsername } = req.body;
-    await User.findOneAndUpdate({ username: req.user.username }, { partnerUsername });
-    res.json({ ok: true, partnerUsername });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -446,6 +457,38 @@ app.get('/api/partner/data', auth, async (req, res) => {
       fullname: partner.fullname,
       accounts, transactions, bills, paydays, goals,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AI SPENDING ANALYSIS — proxied through the server so your Anthropic API
+//  key stays secret. The browser can never call api.anthropic.com directly
+//  with a real key; this endpoint holds the key server-side instead.
+//  Requires an ANTHROPIC_API_KEY environment variable. If it's not set,
+//  the frontend automatically falls back to a local heuristic analysis.
+// ═══════════════════════════════════════════════════════════════════════════
+app.post('/api/ai/analyze', auth, async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ error: 'AI analysis is not configured on this server (missing ANTHROPIC_API_KEY).' });
+    }
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await r.json();
+    res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

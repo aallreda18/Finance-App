@@ -61,7 +61,7 @@ app.post('/api/auth/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username: clean, password: hash, fullname });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null } });
+    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null, colorScheme: user.colorScheme, language: user.language } });
   } catch (e) {
     console.error('Register error:', e.message);
     res.status(500).json({ error: e.message });
@@ -77,7 +77,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(401).json({ error: 'Invalid username or password' });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername } });
+    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -86,7 +86,18 @@ app.get('/api/auth/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername });
+    res.json({ username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Update color scheme / language preferences
+app.patch('/api/auth/preferences', auth, async (req, res) => {
+  try {
+    const patch = {};
+    if (req.body.colorScheme) patch.colorScheme = req.body.colorScheme;
+    if (req.body.language) patch.language = req.body.language;
+    const user = await User.findByIdAndUpdate(req.user.id, patch, { new: true });
+    res.json({ colorScheme: user.colorScheme, language: user.language });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -325,21 +336,36 @@ app.get('/api/budgets', auth, async (req, res) => {
   else query.isMutual = { $ne: true };
   res.json(await Budget.find(query));
 });
+// Shared budgets: visible to either the creator or their connected partner
+app.get('/api/mutual-budgets', auth, async (req, res) => {
+  try {
+    const query = {
+      isMutual: true,
+      $or: [
+        { userId: req.user.id },
+        { partnerUsername: req.user.username }
+      ]
+    };
+    res.json(await Budget.find(query));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/budgets', auth, async (req, res) => {
   try { res.json(await Budget.create({ ...req.body, userId: req.user.id })); }
   catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.patch('/api/budgets/:id', auth, async (req, res) => {
   try {
+    // Owner can always edit; on a shared budget, the connected partner can too
     const b = await Budget.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id }, req.body, { new: true }
+      { _id: req.params.id, $or: [{ userId: req.user.id }, { isMutual: true, partnerUsername: req.user.username }] },
+      req.body, { new: true }
     );
     if (!b) return res.status(404).json({ error: 'Budget not found' });
     res.json(b);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.delete('/api/budgets/:id', auth, async (req, res) => {
-  await Budget.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+  await Budget.findOneAndDelete({ _id: req.params.id, $or: [{ userId: req.user.id }, { isMutual: true, partnerUsername: req.user.username }] });
   res.json({ ok: true });
 });
 
@@ -436,7 +462,7 @@ app.post('/api/partner/disconnect', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Get partner data (accounts, transactions, bills, paydays, goals)
+// Get partner data (accounts, transactions, bills, paydays, goals, personal budgets)
 app.get('/api/partner/data', auth, async (req, res) => {
   try {
     const me = await User.findById(req.user.id);
@@ -445,17 +471,18 @@ app.get('/api/partner/data', auth, async (req, res) => {
     const partner = await User.findOne({ username: me.partnerUsername });
     if (!partner)
       return res.status(404).json({ error: 'Partner account not found' });
-    const [accounts, transactions, bills, paydays, goals] = await Promise.all([
+    const [accounts, transactions, bills, paydays, goals, budgets] = await Promise.all([
       Account.find({ userId: partner._id }),
       Transaction.find({ userId: partner._id }).sort({ date: -1 }).limit(100),
       Bill.find({ userId: partner._id }),
       Payday.find({ userId: partner._id }),
       Goal.find({ userId: partner._id }),
+      Budget.find({ userId: partner._id, isMutual: { $ne: true } }),
     ]);
     res.json({
       partner: { username: partner.username, fullname: partner.fullname },
       fullname: partner.fullname,
-      accounts, transactions, bills, paydays, goals,
+      accounts, transactions, bills, paydays, goals, budgets,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

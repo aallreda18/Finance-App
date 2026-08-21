@@ -329,7 +329,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <div class="card" id="budget-card">
         <div class="section-header" style="margin-bottom:12px">
           <div class="card-title" style="margin:0" data-i18n="card_budget_tracker">💰 Budget Tracker</div>
-          <span class="section-action" onclick="openModal('budget-modal')" data-i18n="btn_add_budget">+ Add Budget</span>
+          <span class="section-action" onclick="openBudgetModal()" data-i18n="btn_add_budget">+ Add Budget</span>
         </div>
         <div id="budget-list"></div>
       </div>
@@ -427,6 +427,11 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 
     <!-- ═══ SCREEN 5: MUTUAL FINANCES ═══ -->
     <div class="screen" id="screen-mutual">
+      <div class="empty-state" id="mutual-empty-state" style="display:none;padding:3rem 1rem">
+        <div class="empty-icon">👫</div>
+        <p><span data-i18n="empty_no_partner">No partner connected yet.</span><br/><span data-i18n="empty_tap_avatar">Tap your avatar → Connect with Another User.</span></p>
+      </div>
+      <div id="mutual-content">
       <div class="mutual-hero">
         <div class="hero-label" data-i18n="hero_combined_balance">Combined Balance</div>
         <div class="hero-amount" id="mutual-combined-total">$0.00</div>
@@ -459,12 +464,26 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <div id="mutual-monthly-summary-content"></div>
       </div>
       <div class="card">
+        <div class="section-header" style="margin-bottom:8px">
+          <div class="card-title" style="margin:0" data-i18n="card_personal_budgets_both">Personal Budgets (Both)</div>
+        </div>
+        <div id="mutual-personal-budgets"></div>
+      </div>
+      <div class="card">
+        <div class="section-header" style="margin-bottom:8px">
+          <div class="card-title" style="margin:0" data-i18n="card_shared_budgets">Shared Budgets</div>
+          <span class="section-action" onclick="openMutualBudgetModal()" data-i18n="btn_add_shared_budget">+ New Shared Budget</span>
+        </div>
+        <div id="mutual-shared-budgets"></div>
+      </div>
+      <div class="card">
         <div class="section-header"><div class="card-title" style="margin:0" data-i18n="card_recent_both">Recent Activity (Both)</div></div>
         <div id="mutual-transactions"></div>
       </div>
       <div class="card">
         <div class="card-title" data-i18n="card_combined_reminders">Combined Reminders</div>
         <div id="mutual-reminders"></div>
+      </div>
       </div>
     </div>
   </div>
@@ -804,6 +823,8 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <div class="modal-handle"></div>
     <div class="modal-title" data-i18n="modal_set_budget">Set Budget</div>
     <input type="hidden" id="budget-edit-period"/>
+    <input type="hidden" id="budget-is-mutual" value="0"/>
+    <p id="budget-mutual-note" style="display:none;font-size:.8rem;color:var(--accent-light);background:var(--surface-2);border-radius:10px;padding:8px 10px;margin-bottom:8px" data-i18n="shared_budget_note">This budget will track combined spending from both of you and both of you can manage it.</p>
     <label data-i18n="lbl_budget_limit">Budget Limit ($)</label>
     <input type="number" id="budget-amount" placeholder="e.g. 500.00" step="0.01" min="0.01"/>
     <label data-i18n="lbl_period">Period</label>
@@ -933,8 +954,8 @@ let pollTimer=null;
 let currentLang='en';
 let selectedScheme='royal';
 
-let store={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[]};
-let partnerStore={accounts:[],transactions:[],bills:[],paydays:[],goals:[]};
+let store={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[],mutualBudgets:[]};
+let partnerStore={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[]};
 
 function getData(k){ return store[k]||[]; }
 function setData(k,v){ store[k]=v; }
@@ -996,6 +1017,7 @@ btn_log:'Log',btn_end:'End',btn_edit:'Edit',btn_undo:'Undo',btn_paid:'Paid',
 btn_new_goal:'New Goal',btn_add_funds:'Add Funds',card_goals_overview:'Goals Overview',card_acct_usage:'Account Usage by Goals',
 empty_no_goals:'No goals yet.',empty_create_envelope:'Create an envelope to start saving.',days_left:' days left',past_target:'Past target date',
 hero_combined_balance:'Combined Balance',card_timeline_combined:'Spending Timeline (Combined)',card_combined_monthly:'Combined Monthly Summary',card_recent_both:'Recent Activity (Both)',card_combined_reminders:'Combined Reminders',
+card_personal_budgets_both:'Personal Budgets (Both)',card_shared_budgets:'Shared Budgets',btn_add_shared_budget:'+ New Shared Budget',shared_budget_note:'This budget will track combined spending from both of you and both of you can manage it.',empty_no_personal_budgets:'Neither of you has set any personal budgets yet.',empty_no_shared_budgets:'No shared budgets yet. Tap "+ New Shared Budget" to create one together.',lbl_you:'You',
 empty_no_partner:'No partner connected yet.',empty_tap_avatar:'Tap your avatar → Connect with Another User.',empty_no_tx_yet:'No transactions yet.',empty_no_reminders_yet:'No reminders yet.',
 modal_add_account:'Add Account',lbl_account_name:'Account Name',ph_account_name:'e.g. Chase Checking',lbl_account_type:'Account Type',lbl_current_balance:'Current Balance ($)',btn_cancel:'Cancel',btn_save_account:'Save Account',
 accttype_checking:'Checking',accttype_savings:'Savings',accttype_investment:'Investment',accttype_credit:'Credit Card',accttype_cash:'Cash',accttype_other:'Other',
@@ -1043,6 +1065,7 @@ btn_log:'Registrar',btn_end:'Finalizar',btn_edit:'Editar',btn_undo:'Deshacer',bt
 btn_new_goal:'Nueva Meta',btn_add_funds:'Agregar Fondos',card_goals_overview:'Resumen de Metas',card_acct_usage:'Uso de Cuentas por Metas',
 empty_no_goals:'Aún no hay metas.',empty_create_envelope:'Crea un sobre para empezar a ahorrar.',days_left:' días restantes',past_target:'Fecha objetivo pasada',
 hero_combined_balance:'Saldo Combinado',card_timeline_combined:'Línea de Tiempo de Gastos (Combinado)',card_combined_monthly:'Resumen Mensual Combinado',card_recent_both:'Actividad Reciente (Ambos)',card_combined_reminders:'Recordatorios Combinados',
+card_personal_budgets_both:'Presupuestos Personales (Ambos)',card_shared_budgets:'Presupuestos Compartidos',btn_add_shared_budget:'+ Nuevo Presupuesto Compartido',shared_budget_note:'Este presupuesto seguirá el gasto combinado de ambos y los dos podrán administrarlo.',empty_no_personal_budgets:'Ninguno de los dos ha fijado presupuestos personales todavía.',empty_no_shared_budgets:'Aún no hay presupuestos compartidos. Toca "+ Nuevo Presupuesto Compartido" para crear uno juntos.',lbl_you:'Tú',
 empty_no_partner:'Aún no hay pareja conectada.',empty_tap_avatar:'Toca tu avatar → Conectar con Otro Usuario.',empty_no_tx_yet:'Aún no hay transacciones.',empty_no_reminders_yet:'Aún no hay recordatorios.',
 modal_add_account:'Agregar Cuenta',lbl_account_name:'Nombre de la Cuenta',ph_account_name:'ej. Cuenta Corriente',lbl_account_type:'Tipo de Cuenta',lbl_current_balance:'Saldo Actual ($)',btn_cancel:'Cancelar',btn_save_account:'Guardar Cuenta',
 accttype_checking:'Corriente',accttype_savings:'Ahorros',accttype_investment:'Inversión',accttype_credit:'Tarjeta de Crédito',accttype_cash:'Efectivo',accttype_other:'Otro',
@@ -1090,6 +1113,7 @@ btn_log:'기록',btn_end:'종료',btn_edit:'수정',btn_undo:'취소',btn_paid:'
 btn_new_goal:'새 목표',btn_add_funds:'금액 추가',card_goals_overview:'목표 개요',card_acct_usage:'목표별 계좌 사용 현황',
 empty_no_goals:'아직 목표가 없습니다.',empty_create_envelope:'저축을 시작하려면 봉투를 만드세요.',days_left:'일 남음',past_target:'목표 날짜 지남',
 hero_combined_balance:'공동 잔액',card_timeline_combined:'지출 타임라인 (공동)',card_combined_monthly:'공동 월간 요약',card_recent_both:'최근 활동 (둘 다)',card_combined_reminders:'공동 알림',
+card_personal_budgets_both:'개인 예산 (둘 다)',card_shared_budgets:'공동 예산',btn_add_shared_budget:'+ 공동 예산 추가',shared_budget_note:'이 예산은 두 사람의 지출을 합산하여 추적하며, 두 사람 모두 관리할 수 있습니다.',empty_no_personal_budgets:'아직 두 사람 모두 개인 예산을 설정하지 않았습니다.',empty_no_shared_budgets:'아직 공동 예산이 없습니다. "+ 공동 예산 추가"를 눌러 함께 만들어보세요.',lbl_you:'나',
 empty_no_partner:'아직 연결된 파트너가 없습니다.',empty_tap_avatar:'아바타를 눌러 → 다른 사용자와 연결하세요.',empty_no_tx_yet:'아직 거래 내역이 없습니다.',empty_no_reminders_yet:'아직 알림이 없습니다.',
 modal_add_account:'계좌 추가',lbl_account_name:'계좌 이름',ph_account_name:'예: 우리은행 입출금',lbl_account_type:'계좌 유형',lbl_current_balance:'현재 잔액 ($)',btn_cancel:'취소',btn_save_account:'계좌 저장',
 accttype_checking:'입출금',accttype_savings:'저축',accttype_investment:'투자',accttype_credit:'신용카드',accttype_cash:'현금',accttype_other:'기타',
@@ -1137,6 +1161,7 @@ btn_log:'記録',btn_end:'終了',btn_edit:'編集',btn_undo:'元に戻す',btn_
 btn_new_goal:'新しい目標',btn_add_funds:'資金を追加',card_goals_overview:'目標の概要',card_acct_usage:'目標別の口座利用状況',
 empty_no_goals:'まだ目標がありません。',empty_create_envelope:'封筒を作成して貯蓄を始めましょう。',days_left:'日残り',past_target:'目標日を過ぎています',
 hero_combined_balance:'合算残高',card_timeline_combined:'支出タイムライン（共同）',card_combined_monthly:'共同月間サマリー',card_recent_both:'最近のアクティビティ（両方）',card_combined_reminders:'共同リマインダー',
+card_personal_budgets_both:'個人予算（両方）',card_shared_budgets:'共同予算',btn_add_shared_budget:'+ 共同予算を追加',shared_budget_note:'この予算は二人の合計支出を追跡し、二人ともが管理できます。',empty_no_personal_budgets:'まだどちらも個人予算を設定していません。',empty_no_shared_budgets:'まだ共同予算がありません。「+ 共同予算を追加」で一緒に作成しましょう。',lbl_you:'自分',
 empty_no_partner:'まだパートナーと連携していません。',empty_tap_avatar:'アバターをタップ →「他のユーザーと連携」',empty_no_tx_yet:'まだ取引がありません。',empty_no_reminders_yet:'まだリマインダーがありません。',
 modal_add_account:'口座を追加',lbl_account_name:'口座名',ph_account_name:'例：普通預金',lbl_account_type:'口座の種類',lbl_current_balance:'現在の残高 ($)',btn_cancel:'キャンセル',btn_save_account:'口座を保存',
 accttype_checking:'普通預金',accttype_savings:'貯蓄',accttype_investment:'投資',accttype_credit:'クレジットカード',accttype_cash:'現金',accttype_other:'その他',
@@ -1358,9 +1383,10 @@ async function initApp(){
 
 async function loadAllData(){
   try{
-    const[accounts,transactions,bills,paydays,goals,budgets]=await Promise.all([
+    const[accounts,transactions,bills,paydays,goals,budgets,mutualBudgets]=await Promise.all([
       api('GET','/api/accounts'),api('GET','/api/transactions'),api('GET','/api/bills'),
       api('GET','/api/paydays'),api('GET','/api/goals'),api('GET','/api/budgets'),
+      api('GET','/api/mutual-budgets').catch(()=>[]),
     ]);
     store.accounts=accounts.map(normalizeAccount);
     store.transactions=transactions.map(normalizeTransaction);
@@ -1368,6 +1394,7 @@ async function loadAllData(){
     store.paydays=paydays.map(normalizePayday);
     store.goals=goals.map(normalizeGoal);
     store.budgets=budgets.map(normalizeBudget);
+    store.mutualBudgets=(mutualBudgets||[]).map(normalizeBudget);
     if(mutualPartner) await loadPartnerData();
   }catch(e){ showToast('Could not load your data: '+e.message); }
 }
@@ -1381,6 +1408,8 @@ async function loadPartnerData(){
     partnerStore.bills=(data.bills||[]).map(normalizeBill);
     partnerStore.paydays=(data.paydays||[]).map(normalizePayday);
     partnerStore.goals=(data.goals||[]).map(normalizeGoal);
+    partnerStore.budgets=(data.budgets||[]).map(normalizeBudget);
+    try{ store.mutualBudgets=(await api('GET','/api/mutual-budgets')).map(normalizeBudget); }catch(e){}
   }catch(e){}
 }
 
@@ -1911,67 +1940,87 @@ function renderMonthlySummary(){
 // ════════════════════════════════════════════════════
 //  BUDGET TRACKER
 // ════════════════════════════════════════════════════
+function openBudgetModal(){
+  document.getElementById('budget-is-mutual').value='0';
+  document.getElementById('budget-mutual-note').style.display='none';
+  document.getElementById('budget-amount').value='';
+  openModal('budget-modal');
+}
+function openMutualBudgetModal(){
+  if(!mutualPartner)return;
+  document.getElementById('budget-is-mutual').value='1';
+  document.getElementById('budget-mutual-note').style.display='block';
+  document.getElementById('budget-amount').value='';
+  openModal('budget-modal');
+}
 async function saveBudget(){
   const amount=parseFloat(document.getElementById('budget-amount').value);
   const period=document.getElementById('budget-period').value;
   const cat=document.getElementById('budget-cat').value;
+  const isMutual=document.getElementById('budget-is-mutual').value==='1';
   if(!amount||amount<=0){alert('Please enter a valid budget amount.');return;}
   const key=period+'|'+(cat||'__all__');
-  const existing=store.budgets.find(b=>b.key===key);
+  const list=isMutual?store.mutualBudgets:store.budgets;
+  const existing=list.find(b=>b.key===key);
+  const payload=isMutual?{key,period,cat,amount,isMutual:true,partnerUsername:mutualPartner}:{key,period,cat,amount};
   try{
     if(existing){
-      const b=await api('PATCH','/api/budgets/'+existing.id,{period,cat,amount});
-      const idx=store.budgets.findIndex(x=>x.id===existing.id); store.budgets[idx]=normalizeBudget(b);
+      const b=await api('PATCH','/api/budgets/'+existing.id,payload);
+      const idx=list.findIndex(x=>x.id===existing.id); list[idx]=normalizeBudget(b);
     } else {
-      const b=await api('POST','/api/budgets',{key,period,cat,amount});
-      store.budgets.push(normalizeBudget(b));
+      const b=await api('POST','/api/budgets',payload);
+      list.push(normalizeBudget(b));
     }
   }catch(e){ alert(e.message); return; }
   closeModal('budget-modal');
   document.getElementById('budget-amount').value='';
   renderBudgets();
-  showToast(t('toast_logged'));
+  if(document.getElementById('screen-mutual').classList.contains('active')) renderMutualBudgetCards();
+  showToast(isMutual?t('toast_budget_saved'):t('toast_budget_saved'));
 }
 async function deleteBudget(id){
   try{ await api('DELETE','/api/budgets/'+id); }catch(e){ alert(e.message); return; }
   store.budgets=store.budgets.filter(b=>b.id!==id);
+  store.mutualBudgets=store.mutualBudgets.filter(b=>b.id!==id);
   renderBudgets();
+  if(document.getElementById('screen-mutual').classList.contains('active')) renderMutualBudgetCards();
 }
 
-function renderBudgets(){
-  const budgets=getData('budgets');
-  const transactions=getData('transactions');
-  const el=document.getElementById('budget-list');
-  if(!el)return;
-  if(!budgets.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_budgets'))}</div>`; return; }
-  const now=new Date();
-  el.innerHTML=budgets.map(b=>{
-    let filtered=transactions.filter(tx=>tx.type==='expense');
-    if(b.cat)filtered=filtered.filter(tx=>tx.cat===b.cat);
-    if(b.period==='weekly'){
-      const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
-      filtered=filtered.filter(tx=>{const d=new Date(tx.date+'T00:00:00');return d>=mon&&d<=now;});
-    } else if(b.period==='monthly'){
-      const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-      filtered=filtered.filter(tx=>(tx.date||'').startsWith(mk));
-    } else {
-      filtered=filtered.filter(tx=>(tx.date||'').startsWith(now.getFullYear().toString()));
-    }
-    const spent=filtered.reduce((s,tx)=>s+tx.amount,0);
-    const pct=b.amount>0?Math.min(Math.round(spent/b.amount*100),100):0;
-    const over=spent>b.amount;
-    const barColor=pct>=90?'#dc2626':pct>=70?'#b45309':'#047857';
-    const periodLabel={weekly:t('period_weekly'),monthly:t('period_monthly'),yearly:t('period_yearly')}[b.period]||b.period;
-    const catSpanAttrs=b.cat?`style="font-size:.88rem;font-weight:600;cursor:pointer;text-decoration:underline dotted" onclick="openCategoryDetail('${escHtml(b.cat)}')"`:`style="font-size:.88rem;font-weight:600"`;
-    return`<div style="margin-bottom:14px">
+function computeBudgetSpend(b,transactions,now){
+  now=now||new Date();
+  let filtered=transactions.filter(tx=>tx.type==='expense');
+  if(b.cat)filtered=filtered.filter(tx=>tx.cat===b.cat);
+  if(b.period==='weekly'){
+    const day=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
+    filtered=filtered.filter(tx=>{const d=new Date(tx.date+'T00:00:00');return d>=mon&&d<=now;});
+  } else if(b.period==='monthly'){
+    const mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    filtered=filtered.filter(tx=>(tx.date||'').startsWith(mk));
+  } else {
+    filtered=filtered.filter(tx=>(tx.date||'').startsWith(now.getFullYear().toString()));
+  }
+  return filtered.reduce((s,tx)=>s+tx.amount,0);
+}
+
+function budgetRowHTML(b,spent,opts){
+  opts=opts||{};
+  const pct=b.amount>0?Math.min(Math.round(spent/b.amount*100),100):0;
+  const over=spent>b.amount;
+  const barColor=pct>=90?'#dc2626':pct>=70?'#b45309':'#047857';
+  const periodLabel={weekly:t('period_weekly'),monthly:t('period_monthly'),yearly:t('period_yearly')}[b.period]||b.period;
+  const catSpanAttrs=b.cat?`style="font-size:.88rem;font-weight:600;cursor:pointer;text-decoration:underline dotted" onclick="openCategoryDetail('${escHtml(b.cat)}')"`:`style="font-size:.88rem;font-weight:600"`;
+  const ownerTag=opts.owner?`<span style="font-size:.68rem;color:var(--accent-light);background:var(--surface-2);padding:1px 7px;border-radius:99px;margin-left:6px">${escHtml(opts.owner)}</span>`:'';
+  const deleteBtn=opts.deletable?`<span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBudget('${b.id}')">✕</span>`:'';
+  return`<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
         <div>
           <span ${catSpanAttrs}>${b.cat?escHtml(catLabel(b.cat)):escHtml(t('opt_all_spending'))}</span>
           <span style="font-size:.72rem;color:var(--text-secondary);margin-left:6px">${escHtml(periodLabel)}</span>
+          ${ownerTag}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:.82rem;font-weight:700;color:${over?'var(--red)':'var(--text-primary)'}">$${fmtNum(spent)} / $${fmtNum(b.amount)}</span>
-          <span style="font-size:.72rem;cursor:pointer;color:var(--red)" onclick="deleteBudget('${b.id}')">✕</span>
+          ${deleteBtn}
         </div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
@@ -1982,6 +2031,48 @@ function renderBudgets(){
         <span style="color:var(--text-secondary)">${pct}%</span>
       </div>
     </div>`;
+}
+
+function renderBudgets(){
+  const budgets=getData('budgets');
+  const transactions=getData('transactions');
+  const el=document.getElementById('budget-list');
+  if(!el)return;
+  if(!budgets.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_budgets'))}</div>`; return; }
+  const now=new Date();
+  el.innerHTML=budgets.map(b=>budgetRowHTML(b,computeBudgetSpend(b,transactions,now),{deletable:true})).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
+}
+
+// ── Mutual screen: view both partners' personal budgets, and manage shared budgets ──
+function renderMutualBudgetCards(){
+  renderMutualPersonalBudgets();
+  renderMutualSharedBudgets();
+}
+function renderMutualPersonalBudgets(){
+  const el=document.getElementById('mutual-personal-budgets');
+  if(!el)return;
+  if(!mutualPartner){ el.innerHTML=''; return; }
+  const now=new Date();
+  const myName=currentUserFullname||currentUser;
+  const partnerName=partnerFullname||mutualPartner;
+  const mine=getData('budgets').map(b=>({b,owner:myName,tx:getData('transactions')}));
+  const theirs=getDataFor(mutualPartner,'budgets').map(b=>({b,owner:partnerName,tx:getDataFor(mutualPartner,'transactions')}));
+  const all=[...mine,...theirs];
+  if(!all.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_personal_budgets'))}</div>`; return; }
+  el.innerHTML=all.map(({b,owner,tx})=>budgetRowHTML(b,computeBudgetSpend(b,tx,now),{owner,deletable:false})).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
+}
+function renderMutualSharedBudgets(){
+  const el=document.getElementById('mutual-shared-budgets');
+  if(!el)return;
+  if(!mutualPartner){ el.innerHTML=''; return; }
+  const shared=store.mutualBudgets;
+  if(!shared.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_shared_budgets'))}</div>`; return; }
+  const now=new Date();
+  const myTx=getData('transactions');
+  const theirTx=getDataFor(mutualPartner,'transactions');
+  el.innerHTML=shared.map(b=>{
+    const spent=computeBudgetSpend(b,myTx,now)+computeBudgetSpend(b,theirTx,now);
+    return budgetRowHTML(b,spent,{deletable:true});
   }).join('<div style="height:1px;background:var(--border);margin:4px 0"></div>');
 }
 
@@ -2528,9 +2619,12 @@ function setMutualTab(tab,el){
 }
 function renderMutualScreen(){
   if(!mutualPartner){
-    document.getElementById('screen-mutual').innerHTML=`<div class="empty-state" style="padding:3rem 1rem"><div class="empty-icon">👫</div><p>${escHtml(t('empty_no_partner'))}<br/>${escHtml(t('empty_tap_avatar'))}</p></div>`;
+    document.getElementById('mutual-empty-state').style.display='block';
+    document.getElementById('mutual-content').style.display='none';
     return;
   }
+  document.getElementById('mutual-empty-state').style.display='none';
+  document.getElementById('mutual-content').style.display='block';
   const myAccounts=getData('accounts');
   const partnerAccounts=getDataFor(mutualPartner,'accounts');
   const myTotal=myAccounts.reduce((s,a)=>s+a.balance,0);
@@ -2544,6 +2638,7 @@ function renderMutualScreen(){
   document.getElementById('mutual-user2-bal').textContent='$'+fmtNum(partnerTotal);
   renderMutualChart();
   renderMutualSummary();
+  renderMutualBudgetCards();
   renderMutualTransactions(myName,partnerName);
   renderMutualReminders(myName,partnerName);
 }

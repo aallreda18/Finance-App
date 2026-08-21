@@ -287,6 +287,9 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
           <span class="section-action" onclick="addExpense()" data-i18n="btn_add_expense_action">+ Add Expense</span>
         </div>
         <div id="recent-transactions"></div>
+        <div style="text-align:center;margin-top:10px">
+          <span class="section-action" onclick="openAllTransactionsModal()" data-i18n="btn_view_all_tx">View All by Category →</span>
+        </div>
       </div>
     </div>
 
@@ -575,6 +578,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <select id="exp-cat">
       <option value="🍔 Food">🍔 Food</option>
       <option value="🚗 Transport">🚗 Transport</option>
+      <option value="⛽ Gas">⛽ Gas</option>
       <option value="🏠 Housing">🏠 Housing</option>
       <option value="🛒 Shopping">🛒 Shopping</option>
       <option value="💊 Health">💊 Health</option>
@@ -625,6 +629,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <select id="bill-cat-select">
       <option value="🍔 Food">🍔 Food</option>
       <option value="🚗 Transport">🚗 Transport</option>
+      <option value="⛽ Gas">⛽ Gas</option>
       <option value="🏠 Housing">🏠 Housing</option>
       <option value="🛒 Shopping">🛒 Shopping</option>
       <option value="💊 Health">💊 Health</option>
@@ -838,6 +843,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
       <option value="" data-i18n="opt_all_spending">All Spending</option>
       <option value="🍔 Food">🍔 Food</option>
       <option value="🚗 Transport">🚗 Transport</option>
+      <option value="⛽ Gas">⛽ Gas</option>
       <option value="🏠 Housing">🏠 Housing</option>
       <option value="🛒 Shopping">🛒 Shopping</option>
       <option value="💊 Health">💊 Health</option>
@@ -917,6 +923,34 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <div id="cat-detail-list" style="max-height:52vh;overflow-y:auto"></div>
     <div class="modal-row" style="margin-top:14px">
       <button class="btn-cancel" onclick="closeModal('category-detail-modal')" data-i18n="btn_close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- All Transactions, grouped by category -->
+<div class="modal-overlay" id="all-transactions-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" data-i18n="modal_all_transactions">All Transactions by Category</div>
+    <div id="all-tx-list" style="max-height:65vh;overflow-y:auto"></div>
+    <div class="modal-row" style="margin-top:14px">
+      <button class="btn-cancel" onclick="closeModal('all-transactions-modal')" data-i18n="btn_close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create a custom category -->
+<div class="modal-overlay" id="add-category-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" data-i18n="modal_add_category">New Category</div>
+    <label data-i18n="lbl_cat_emoji">Emoji (optional)</label>
+    <input type="text" id="new-cat-emoji" placeholder="🏷️" maxlength="4"/>
+    <label data-i18n="lbl_cat_name">Category Name</label>
+    <input type="text" id="new-cat-name" data-i18n-placeholder="ph_cat_name" placeholder="e.g. Gaming"/>
+    <div class="modal-row">
+      <button class="btn-cancel" onclick="closeModal('add-category-modal')" data-i18n="btn_cancel">Cancel</button>
+      <button class="btn-primary" onclick="saveNewCategory()" data-i18n="btn_create_category">Create</button>
     </div>
   </div>
 </div>
@@ -1203,6 +1237,7 @@ function applyI18n(){
 const CATEGORY_I18N={
 '🍔 Food':{en:'🍔 Food',es:'🍔 Comida',ko:'🍔 음식',ja:'🍔 食費'},
 '🚗 Transport':{en:'🚗 Transport',es:'🚗 Transporte',ko:'🚗 교통',ja:'🚗 交通費'},
+'⛽ Gas':{en:'⛽ Gas',es:'⛽ Gasolina',ko:'⛽ 주유',ja:'⛽ ガソリン'},
 '🏠 Housing':{en:'🏠 Housing',es:'🏠 Vivienda',ko:'🏠 주거',ja:'🏠 住居費'},
 '🛒 Shopping':{en:'🛒 Shopping',es:'🛒 Compras',ko:'🛒 쇼핑',ja:'🛒 買い物'},
 '💊 Health':{en:'💊 Health',es:'💊 Salud',ko:'💊 건강',ja:'💊 医療費'},
@@ -1211,7 +1246,9 @@ const CATEGORY_I18N={
 '📚 Education':{en:'📚 Education',es:'📚 Educación',ko:'📚 교육',ja:'📚 教育費'},
 '✈️ Travel':{en:'✈️ Travel',es:'✈️ Viajes',ko:'✈️ 여행',ja:'✈️ 旅行'},
 '⛪ Church':{en:'⛪ Church',es:'⛪ Iglesia',ko:'⛪ 종교',ja:'⛪ 宗教'},
-'💼 Other':{en:'💼 Other',es:'💼 Otro',ko:'💼 기타',ja:'💼 その他'}
+'💼 Other':{en:'💼 Other',es:'💼 Otro',ko:'💼 기타',ja:'💼 その他'},
+'💵 Income':{en:'💵 Income',es:'💵 Ingreso',ko:'💵 수입',ja:'💵 収入'},
+'🔄 Transfer':{en:'🔄 Transfer',es:'🔄 Transferencia',ko:'🔄 이체',ja:'🔄 振替'}
 };
 function catLabel(cat){ return (CATEGORY_I18N[cat]&&CATEGORY_I18N[cat][currentLang])||cat; }
 function applyCategoryLabels(){

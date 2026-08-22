@@ -1039,6 +1039,7 @@ btn_add_income:'Add Income',btn_update_balance:'Update Balance',btn_add_account:
 card_my_accounts:'My Accounts',card_money_earned:'Money Earned Over Time',card_recent_tx:'Recent Transactions',btn_add_expense_action:'+ Add Expense',
 empty_no_accounts:'No accounts yet.',empty_add_account_hint:'Tap "Add Account" to get started.',
 empty_no_tx:'No transactions yet.',empty_add_tx_hint:'Tap "+ Add Expense" to log one.',
+btn_view_all_tx:'View All by Category →',modal_all_transactions:'All Transactions by Category',modal_add_category:'New Category',lbl_cat_emoji:'Emoji (optional)',lbl_cat_name:'Category Name',ph_cat_name:'e.g. Gaming',btn_create_category:'Create',toast_category_added:'Category added ✅',opt_add_new_category:'➕ Add New Category',
 tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
@@ -1087,6 +1088,7 @@ btn_add_income:'Agregar Ingreso',btn_update_balance:'Actualizar Saldo',btn_add_a
 card_my_accounts:'Mis Cuentas',card_money_earned:'Dinero Ganado con el Tiempo',card_recent_tx:'Transacciones Recientes',btn_add_expense_action:'+ Agregar Gasto',
 empty_no_accounts:'Aún no hay cuentas.',empty_add_account_hint:'Toca "Agregar Cuenta" para comenzar.',
 empty_no_tx:'Aún no hay transacciones.',empty_add_tx_hint:'Toca "+ Agregar Gasto" para registrar una.',
+btn_view_all_tx:'Ver Todas por Categoría →',modal_all_transactions:'Todas las Transacciones por Categoría',modal_add_category:'Nueva Categoría',lbl_cat_emoji:'Emoji (opcional)',lbl_cat_name:'Nombre de la Categoría',ph_cat_name:'ej. Videojuegos',btn_create_category:'Crear',toast_category_added:'Categoría agregada ✅',opt_add_new_category:'➕ Agregar Nueva Categoría',
 tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
@@ -1135,6 +1137,7 @@ btn_add_income:'수입 추가',btn_update_balance:'잔액 수정',btn_add_accoun
 card_my_accounts:'내 계좌',card_money_earned:'기간별 수입',card_recent_tx:'최근 거래 내역',btn_add_expense_action:'+ 지출 추가',
 empty_no_accounts:'아직 계좌가 없습니다.',empty_add_account_hint:'"계좌 추가"를 눌러 시작하세요.',
 empty_no_tx:'아직 거래 내역이 없습니다.',empty_add_tx_hint:'"+ 지출 추가"를 눌러 기록하세요.',
+btn_view_all_tx:'카테고리별 전체 보기 →',modal_all_transactions:'카테고리별 전체 거래 내역',modal_add_category:'새 카테고리',lbl_cat_emoji:'이모지 (선택)',lbl_cat_name:'카테고리 이름',ph_cat_name:'예: 게임',btn_create_category:'만들기',toast_category_added:'카테고리가 추가되었습니다 ✅',opt_add_new_category:'➕ 새 카테고리 추가',
 tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
@@ -1183,6 +1186,7 @@ btn_add_income:'収入を追加',btn_update_balance:'残高を更新',btn_add_ac
 card_my_accounts:'My口座',card_money_earned:'期間別収入',card_recent_tx:'最近の取引',btn_add_expense_action:'+ 支出を追加',
 empty_no_accounts:'まだ口座がありません。',empty_add_account_hint:'「口座を追加」をタップして始めましょう。',
 empty_no_tx:'まだ取引がありません。',empty_add_tx_hint:'「+ 支出を追加」で記録しましょう。',
+btn_view_all_tx:'カテゴリ別にすべて見る →',modal_all_transactions:'カテゴリ別のすべての取引',modal_add_category:'新しいカテゴリ',lbl_cat_emoji:'絵文字（任意）',lbl_cat_name:'カテゴリ名',ph_cat_name:'例：ゲーム',btn_create_category:'作成',toast_category_added:'カテゴリを追加しました ✅',opt_add_new_category:'➕ 新しいカテゴリを追加',
 tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
@@ -1232,6 +1236,7 @@ function applyI18n(){
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{ el.placeholder=t(el.getAttribute('data-i18n-placeholder')); });
   applyCategoryLabels();
   applyGoalTypeLabels();
+  populateCategoryDropdowns();
 }
 
 const CATEGORY_I18N={
@@ -1255,6 +1260,105 @@ function applyCategoryLabels(){
   document.querySelectorAll('#exp-cat, #budget-cat, #bill-cat-select').forEach(sel=>{
     Array.from(sel.options).forEach(opt=>{ if(CATEGORY_I18N[opt.value]) opt.textContent=catLabel(opt.value); });
   });
+}
+
+// ── Custom categories (per-user, synced via API) ──────────────────────────
+let customCategories=[];
+let pendingCategorySelectId=null;
+function populateCategoryDropdowns(){
+  ['exp-cat','budget-cat','bill-cat-select'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    const currentVal=sel.value;
+    Array.from(sel.querySelectorAll('option[data-custom],option[data-addnew]')).forEach(o=>o.remove());
+    customCategories.forEach(cat=>{
+      const opt=document.createElement('option');
+      opt.value=cat; opt.textContent=cat; opt.setAttribute('data-custom','1');
+      sel.appendChild(opt);
+    });
+    const addOpt=document.createElement('option');
+    addOpt.value='__add_new__'; addOpt.textContent=t('opt_add_new_category'); addOpt.setAttribute('data-addnew','1');
+    sel.appendChild(addOpt);
+    if(currentVal && currentVal!=='__add_new__') sel.value=currentVal;
+    if(!sel._addCatWired){
+      sel._addCatWired=true;
+      sel.addEventListener('change',function(){
+        if(this.value==='__add_new__'){
+          pendingCategorySelectId=id;
+          this.selectedIndex=0;
+          openAddCategoryModal();
+        }
+      });
+    }
+  });
+}
+function openAddCategoryModal(){
+  document.getElementById('new-cat-emoji').value='';
+  document.getElementById('new-cat-name').value='';
+  document.getElementById('add-category-modal').classList.add('open');
+}
+async function saveNewCategory(){
+  const emoji=document.getElementById('new-cat-emoji').value.trim()||'🏷️';
+  const name=document.getElementById('new-cat-name').value.trim();
+  if(!name){alert('Please enter a category name.');return;}
+  const full=emoji+' '+name;
+  try{
+    const res=await api('POST','/api/auth/categories',{category:full});
+    customCategories=res.customCategories||[...customCategories,full];
+  }catch(e){ alert(e.message); return; }
+  populateCategoryDropdowns();
+  if(pendingCategorySelectId){
+    const sel=document.getElementById(pendingCategorySelectId);
+    if(sel) sel.value=full;
+    pendingCategorySelectId=null;
+  }
+  closeModal('add-category-modal');
+  showToast(t('toast_category_added'));
+}
+
+// ── "View All by Category" (home screen) ───────────────────────────────────
+function openAllTransactionsModal(){
+  const transactions=getData('transactions').slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const groups={};
+  transactions.forEach(tx=>{
+    const key=tx.cat||(tx.type==='income'?'💵 Income':tx.type==='transfer'?'🔄 Transfer':'💼 Other');
+    (groups[key]=groups[key]||[]).push(tx);
+  });
+  const order=Object.keys(groups).sort((a,b)=>{
+    const totalA=groups[a].reduce((s,tx)=>s+(tx.type==='expense'?tx.amount:0),0);
+    const totalB=groups[b].reduce((s,tx)=>s+(tx.type==='expense'?tx.amount:0),0);
+    return totalB-totalA;
+  });
+  const el=document.getElementById('all-tx-list');
+  if(!order.length){
+    el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}</p></div>`;
+  } else {
+    el.innerHTML=order.map(cat=>{
+      const items=groups[cat];
+      const rows=items.map(tx=>{
+        const isTransfer=tx.type==='transfer';
+        const amtColor=isTransfer?'':tx.type==='income'?'text-green':'text-red';
+        const prefix=isTransfer?'⇄':tx.type==='income'?'+':'-';
+        return`<div class="tx-row">
+          <div class="tx-icon" style="background:${isTransfer?'var(--surface-2)':tx.type==='income'?'#d1fae5':'#fee2e2'}">${cat.split(' ')[0]}</div>
+          <div style="flex:1;min-width:0">
+            <div class="tx-name">${escHtml(tx.desc)}</div>
+            <div class="tx-cat">${fmtDate(tx.date)}</div>
+          </div>
+          <div class="tx-amount ${amtColor}">${isTransfer?'':prefix}$${fmtNum(tx.amount)}</div>
+        </div>`;
+      }).join('');
+      const catTotal=items.reduce((s,tx)=>s+tx.amount,0);
+      return`<div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:2px solid var(--border);margin-bottom:4px">
+          <span style="font-weight:700;font-size:.85rem">${escHtml(catLabel(cat))}</span>
+          <span style="font-size:.78rem;font-weight:700;color:var(--text-secondary)">${items.length} · $${fmtNum(catTotal)}</span>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('all-transactions-modal').classList.add('open');
 }
 const GOAL_TYPE_I18N={
 '✈️ Vacation':{en:'✈️ Vacation',es:'✈️ Vacaciones',ko:'✈️ 여행',ja:'✈️ 旅行'},
@@ -1369,6 +1473,7 @@ async function loginUser(user){
   currentUser=user.username;
   currentUserFullname=user.fullname||user.username;
   mutualPartner=user.partnerUsername||null;
+  customCategories=user.customCategories||[];
   applyColorScheme(user.colorScheme||'royal');
   currentLang=TR[user.language]?user.language:'en';
   document.getElementById('auth-screen').style.display='none';

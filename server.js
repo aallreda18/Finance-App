@@ -61,7 +61,7 @@ app.post('/api/auth/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username: clean, password: hash, fullname });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null, colorScheme: user.colorScheme, language: user.language } });
+    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories } });
   } catch (e) {
     console.error('Register error:', e.message);
     res.status(500).json({ error: e.message });
@@ -77,7 +77,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(401).json({ error: 'Invalid username or password' });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language } });
+    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -86,7 +86,32 @@ app.get('/api/auth/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language });
+    res.json({ username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Add a custom expense category (e.g. "🎮 Gaming")
+app.post('/api/auth/categories', auth, async (req, res) => {
+  try {
+    const category = (req.body.category || '').trim();
+    if (!category) return res.status(400).json({ error: 'Category name required' });
+    const user = await User.findById(req.user.id);
+    if (!user.customCategories.includes(category)) {
+      user.customCategories.push(category);
+      await user.save();
+    }
+    res.json({ customCategories: user.customCategories });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Remove a custom expense category
+app.delete('/api/auth/categories', auth, async (req, res) => {
+  try {
+    const category = req.body.category;
+    const user = await User.findById(req.user.id);
+    user.customCategories = (user.customCategories || []).filter(c => c !== category);
+    await user.save();
+    res.json({ customCategories: user.customCategories });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema({
   password:        { type: String, required: true },  // bcrypt hash
   fullname:        { type: String, required: true, trim: true },
   partnerUsername: { type: String, default: null },
+  colorScheme:      { type: String, default: 'royal' },   // royal | emerald | violet | rose | slate-dark
+  language:         { type: String, default: 'en' },      // en | ko | ja | es
+  customCategories: { type: [String], default: [] },       // user-created expense categories, e.g. "🎮 Gaming"
 }, { timestamps: true });
 
 // ── Account ───────────────────────────────────────────────────────────────
@@ -34,10 +37,12 @@ const billSchema = new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name:      { type: String, required: true },
   amount:    { type: Number, default: 0 },
-  startDate: { type: String, required: true },
-  recur:     { type: String, enum: ['once','weekly','biweekly','monthly','yearly'], default: 'monthly' },
+  startDate: { type: String, required: true },   // acts as "next due date" — advances as occurrences are logged
+  recur:     { type: String, enum: ['once','weekly','monthly','yearly'], default: 'monthly' },
   endDate:   { type: String, default: null },
   paid:      { type: Boolean, default: false },
+  acctId:    { type: String, default: null },     // account this bill auto-deducts from when logged
+  category:  { type: String, default: '💼 Other' }, // expense category applied when a payment is logged
 }, { timestamps: true });
 
 // ── Payday ────────────────────────────────────────────────────────────────
@@ -45,9 +50,10 @@ const paydaySchema = new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   label:     { type: String, required: true },
   amount:    { type: Number, default: 0 },
-  startDate: { type: String, required: true },
+  startDate: { type: String, required: true },   // acts as "next payday" — advances as occurrences are logged
   freq:      { type: String, enum: ['weekly','biweekly','semimonthly','monthly'], default: 'biweekly' },
   endDate:   { type: String, default: null },
+  acctId:    { type: String, default: null },     // account this payday auto-deposits into when logged
 }, { timestamps: true });
 
 // ── Goal (personal + mutual) ──────────────────────────────────────────────

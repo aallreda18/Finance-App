@@ -255,9 +255,14 @@ app.patch('/api/transactions/:id', auth, async (req, res) => {
 app.delete('/api/transactions/:id', auth, async (req, res) => {
   try {
     const tx = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    if (tx && tx.accountId && tx.type !== 'transfer') {
-      const delta = tx.type === 'income' ? -tx.amount : tx.amount;
-      await Account.findOneAndUpdate({ _id: tx.accountId, userId: req.user.id }, { $inc: { balance: delta } });
+    if (tx) {
+      if (tx.type === 'transfer') {
+        if (tx.accountId) await Account.findOneAndUpdate({ _id: tx.accountId, userId: req.user.id }, { $inc: { balance: tx.amount } });
+        if (tx.toAccountId) await Account.findOneAndUpdate({ _id: tx.toAccountId, userId: req.user.id }, { $inc: { balance: -tx.amount } });
+      } else if (tx.accountId) {
+        const delta = tx.type === 'income' ? -tx.amount : tx.amount;
+        await Account.findOneAndUpdate({ _id: tx.accountId, userId: req.user.id }, { $inc: { balance: delta } });
+      }
     }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

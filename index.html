@@ -414,8 +414,8 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <!-- ═══ SCREEN 4: SAVINGS GOALS ═══ -->
     <div class="screen" id="screen-goals">
       <div class="btn-row">
-        <button class="btn-action primary-action" onclick="openModal('add-goal-modal')"><span class="btn-icon">🎯</span><span data-i18n="btn_new_goal">New Goal</span></button>
-        <button class="btn-action" onclick="openModal('contribute-modal')"><span class="btn-icon">💸</span><span data-i18n="btn_add_funds">Add Funds</span></button>
+        <button class="btn-action primary-action" onclick="openPersonalGoalModal()"><span class="btn-icon">🎯</span><span data-i18n="btn_new_goal">New Goal</span></button>
+        <button class="btn-action" onclick="openContributeModal()"><span class="btn-icon">💸</span><span data-i18n="btn_add_funds">Add Funds</span></button>
       </div>
       <div class="card" id="goals-overview" style="display:none">
         <div class="card-title" data-i18n="card_goals_overview">Goals Overview</div>
@@ -478,6 +478,13 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
           <span class="section-action" onclick="openMutualBudgetModal()" data-i18n="btn_add_shared_budget">+ New Shared Budget</span>
         </div>
         <div id="mutual-shared-budgets"></div>
+      </div>
+      <div class="card">
+        <div class="section-header" style="margin-bottom:8px">
+          <div class="card-title" style="margin:0" data-i18n="card_shared_goals">Shared Goals</div>
+          <span class="section-action" onclick="openMutualGoalModal()" data-i18n="btn_add_shared_goal">+ New Shared Goal</span>
+        </div>
+        <div id="mutual-goals-list"></div>
       </div>
       <div class="card">
         <div class="section-header"><div class="card-title" style="margin:0" data-i18n="card_recent_both">Recent Activity (Both)</div></div>
@@ -677,11 +684,13 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   </div>
 </div>
 
-<!-- New Goal -->
+<!-- New Goal (personal or shared) -->
 <div class="modal-overlay" id="add-goal-modal">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title" data-i18n="modal_new_goal">New Savings Goal</div>
+    <div class="modal-title" id="goal-modal-title" data-i18n="modal_new_goal">New Savings Goal</div>
+    <input type="hidden" id="goal-is-mutual" value="0"/>
+    <input type="hidden" id="goal-mutual-edit-id" value=""/>
     <label data-i18n="lbl_goal_name">Goal Name</label>
     <input type="text" id="goal-name" data-i18n-placeholder="ph_goal_name" placeholder="e.g. Hawaii Vacation"/>
     <label data-i18n="lbl_goal_category">Category</label>
@@ -705,16 +714,17 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     <input type="date" id="goal-date"/>
     <div class="modal-row">
       <button class="btn-cancel" onclick="closeModal('add-goal-modal')" data-i18n="btn_cancel">Cancel</button>
-      <button class="btn-primary" onclick="addGoal()" data-i18n="btn_create_goal">Create Goal</button>
+      <button class="btn-primary" id="goal-save-btn" onclick="addGoal()" data-i18n="btn_create_goal">Create Goal</button>
     </div>
   </div>
 </div>
 
-<!-- Add Funds to Goal -->
+<!-- Add Funds to Goal (personal or shared) -->
 <div class="modal-overlay" id="contribute-modal">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" data-i18n="modal_add_funds">Add Funds to Goal</div>
+    <input type="hidden" id="contrib-is-mutual" value="0"/>
     <label data-i18n="lbl_select_goal">Select Goal</label>
     <select id="contrib-goal-select"></select>
     <label data-i18n="lbl_amount_to_add">Amount to Add ($)</label>
@@ -988,7 +998,7 @@ let pollTimer=null;
 let currentLang='en';
 let selectedScheme='royal';
 
-let store={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[],mutualBudgets:[]};
+let store={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[],mutualBudgets:[],mutualGoals:[]};
 let partnerStore={accounts:[],transactions:[],bills:[],paydays:[],goals:[],budgets:[]};
 
 function getData(k){ return store[k]||[]; }
@@ -1079,6 +1089,8 @@ lbl_budget_category:'Category (optional — leave blank for total spending)',opt
 settings_title:'Settings',settings_color:'Color Theme',settings_language:'Language',btn_save_settings:'Save',settings_saved:'Settings saved ✅',
 cat_detail_no_expenses:'No expenses in this category yet.',expense_singular:' expense',expense_plural:' expenses',
 modal_log_bill:'Log Payment',modal_log_payday:'Log Payday',lbl_occ_amount:'Amount ($)',lbl_occ_account:'Account',lbl_occ_date:'Date',btn_confirm:'Confirm',toast_logged:'Logged ✅',
+btn_delete:'Delete',confirm_delete_tx:'Delete this transaction? This cannot be undone.',toast_tx_deleted:'Transaction deleted 🗑️',
+card_shared_goals:'Shared Goals',btn_add_shared_goal:'+ New Shared Goal',empty_no_shared_goals:'No shared goals yet. Tap "+ New Shared Goal" to create one together.',modal_new_shared_goal:'New Shared Goal',modal_edit_shared_goal:'Edit Shared Goal',
 },
 es:{
 nav_finances:'Mis Finanzas',nav_stats:'Estadísticas',nav_reminders:'Recordatorios',nav_goals:'Metas Personales',nav_mutual:'Mutuo',
@@ -1128,6 +1140,8 @@ lbl_budget_category:'Categoría (opcional — déjalo en blanco para el gasto to
 settings_title:'Configuración',settings_color:'Tema de Color',settings_language:'Idioma',btn_save_settings:'Guardar',settings_saved:'Configuración guardada ✅',
 cat_detail_no_expenses:'Aún no hay gastos en esta categoría.',expense_singular:' gasto',expense_plural:' gastos',
 modal_log_bill:'Registrar Pago',modal_log_payday:'Registrar Día de Pago',lbl_occ_amount:'Monto ($)',lbl_occ_account:'Cuenta',lbl_occ_date:'Fecha',btn_confirm:'Confirmar',toast_logged:'Registrado ✅',
+btn_delete:'Eliminar',confirm_delete_tx:'¿Eliminar esta transacción? Esto no se puede deshacer.',toast_tx_deleted:'Transacción eliminada 🗑️',
+card_shared_goals:'Metas Compartidas',btn_add_shared_goal:'+ Nueva Meta Compartida',empty_no_shared_goals:'Aún no hay metas compartidas. Toca "+ Nueva Meta Compartida" para crear una juntos.',modal_new_shared_goal:'Nueva Meta Compartida',modal_edit_shared_goal:'Editar Meta Compartida',
 },
 ko:{
 nav_finances:'내 재정',nav_stats:'통계',nav_reminders:'알림',nav_goals:'개인 목표',nav_mutual:'공동 재정',
@@ -1177,6 +1191,8 @@ lbl_budget_category:'카테고리 (선택 — 전체 지출은 비워두세요)'
 settings_title:'설정',settings_color:'색상 테마',settings_language:'언어',btn_save_settings:'저장',settings_saved:'설정이 저장되었습니다 ✅',
 cat_detail_no_expenses:'이 카테고리에 아직 지출이 없습니다.',expense_singular:'건',expense_plural:'건',
 modal_log_bill:'납부 기록',modal_log_payday:'급여 기록',lbl_occ_amount:'금액 ($)',lbl_occ_account:'계좌',lbl_occ_date:'날짜',btn_confirm:'확인',toast_logged:'기록되었습니다 ✅',
+btn_delete:'삭제',confirm_delete_tx:'이 거래를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',toast_tx_deleted:'거래가 삭제되었습니다 🗑️',
+card_shared_goals:'공동 목표',btn_add_shared_goal:'+ 공동 목표 추가',empty_no_shared_goals:'아직 공동 목표가 없습니다. "+ 공동 목표 추가"를 눌러 함께 만들어보세요.',modal_new_shared_goal:'새 공동 목표',modal_edit_shared_goal:'공동 목표 수정',
 },
 ja:{
 nav_finances:'マイ家計',nav_stats:'統計',nav_reminders:'リマインダー',nav_goals:'個人目標',nav_mutual:'共同家計',
@@ -1226,6 +1242,8 @@ lbl_budget_category:'カテゴリ（任意 — 空欄で総支出）',opt_all_sp
 settings_title:'設定',settings_color:'カラーテーマ',settings_language:'言語',btn_save_settings:'保存',settings_saved:'設定を保存しました ✅',
 cat_detail_no_expenses:'このカテゴリにはまだ支出がありません。',expense_singular:'件',expense_plural:'件',
 modal_log_bill:'支払いを記録',modal_log_payday:'給料を記録',lbl_occ_amount:'金額 ($)',lbl_occ_account:'口座',lbl_occ_date:'日付',btn_confirm:'確認',toast_logged:'記録しました ✅',
+btn_delete:'削除',confirm_delete_tx:'この取引を削除しますか？元に戻すことはできません。',toast_tx_deleted:'取引を削除しました 🗑️',
+card_shared_goals:'共同目標',btn_add_shared_goal:'+ 共同目標を追加',empty_no_shared_goals:'まだ共同目標がありません。「+ 共同目標を追加」で一緒に作成しましょう。',modal_new_shared_goal:'新しい共同目標',modal_edit_shared_goal:'共同目標を編集',
 }
 };
 function t(key){ return (TR[currentLang]&&TR[currentLang][key]) || (TR.en&&TR.en[key]) || key; }
@@ -1335,19 +1353,7 @@ function openAllTransactionsModal(){
   } else {
     el.innerHTML=order.map(cat=>{
       const items=groups[cat];
-      const rows=items.map(tx=>{
-        const isTransfer=tx.type==='transfer';
-        const amtColor=isTransfer?'':tx.type==='income'?'text-green':'text-red';
-        const prefix=isTransfer?'⇄':tx.type==='income'?'+':'-';
-        return`<div class="tx-row">
-          <div class="tx-icon" style="background:${isTransfer?'var(--surface-2)':tx.type==='income'?'#d1fae5':'#fee2e2'}">${cat.split(' ')[0]}</div>
-          <div style="flex:1;min-width:0">
-            <div class="tx-name">${escHtml(tx.desc)}</div>
-            <div class="tx-cat">${fmtDate(tx.date)}</div>
-          </div>
-          <div class="tx-amount ${amtColor}">${isTransfer?'':prefix}$${fmtNum(tx.amount)}</div>
-        </div>`;
-      }).join('');
+      const rows=items.map(tx=>txRowHTML(tx,{showCat:false})).join('');
       const catTotal=items.reduce((s,tx)=>s+tx.amount,0);
       return`<div style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:2px solid var(--border);margin-bottom:4px">
@@ -1525,10 +1531,11 @@ async function initApp(){
 
 async function loadAllData(){
   try{
-    const[accounts,transactions,bills,paydays,goals,budgets,mutualBudgets]=await Promise.all([
+    const[accounts,transactions,bills,paydays,goals,budgets,mutualBudgets,mutualGoals]=await Promise.all([
       api('GET','/api/accounts'),api('GET','/api/transactions'),api('GET','/api/bills'),
       api('GET','/api/paydays'),api('GET','/api/goals'),api('GET','/api/budgets'),
       api('GET','/api/mutual-budgets').catch(()=>[]),
+      api('GET','/api/mutual-goals').catch(()=>[]),
     ]);
     store.accounts=accounts.map(normalizeAccount);
     store.transactions=transactions.map(normalizeTransaction);
@@ -1537,6 +1544,7 @@ async function loadAllData(){
     store.goals=goals.map(normalizeGoal);
     store.budgets=budgets.map(normalizeBudget);
     store.mutualBudgets=(mutualBudgets||[]).map(normalizeBudget);
+    store.mutualGoals=(mutualGoals||[]).map(normalizeGoal);
     if(mutualPartner) await loadPartnerData();
   }catch(e){ showToast('Could not load your data: '+e.message); }
 }
@@ -1552,6 +1560,7 @@ async function loadPartnerData(){
     partnerStore.goals=(data.goals||[]).map(normalizeGoal);
     partnerStore.budgets=(data.budgets||[]).map(normalizeBudget);
     try{ store.mutualBudgets=(await api('GET','/api/mutual-budgets')).map(normalizeBudget); }catch(e){}
+    try{ store.mutualGoals=(await api('GET','/api/mutual-goals')).map(normalizeGoal); }catch(e){}
   }catch(e){}
 }
 
@@ -1865,6 +1874,7 @@ async function saveExpense(){
   document.getElementById('exp-save-btn').textContent=t('btn_save_expense');
   renderFinancesScreen();
   renderStats();
+  refreshOpenTxModals();
 }
 
 // ════════════════════════════════════════════════════
@@ -1916,30 +1926,53 @@ function renderFinancesScreen(){
   updateNotifBadge();
 }
 
-function renderRecentTransactions(){
-  const transactions=getData('transactions').slice().reverse().slice(0,12);
-  const el=document.getElementById('recent-transactions');
-  if(!transactions.length){el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}<br/>${escHtml(t('empty_add_tx_hint'))}</p></div>`;return;}
-  el.innerHTML=transactions.map(tx=>{
-    const isTransfer=tx.type==='transfer';
-    const bgColor=isTransfer?'var(--surface-2)':tx.type==='income'?'#d1fae5':'#fee2e2';
-    const amtColor=isTransfer?'':tx.type==='income'?'text-green':'text-red';
-    const prefix=isTransfer?'⇄':tx.type==='income'?'+':'-';
-    const catText = tx.cat ? catLabel(tx.cat) : '';
-    return`<div class="tx-row">
+function txRowHTML(tx,opts){
+  opts=opts||{};
+  const isTransfer=tx.type==='transfer';
+  const bgColor=isTransfer?'var(--surface-2)':tx.type==='income'?'#d1fae5':'#fee2e2';
+  const amtColor=isTransfer?'':tx.type==='income'?'text-green':'text-red';
+  const prefix=isTransfer?'⇄':tx.type==='income'?'+':'-';
+  const catPart=opts.showCat!==false&&tx.cat?escHtml(catLabel(tx.cat))+' · ':'';
+  const editBtn=tx.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${tx.id}')" title="${escHtml(t('btn_edit'))}">✏️</span>`:'';
+  const delBtn=`<span style="font-size:.8rem;cursor:pointer;color:var(--red)" onclick="deleteTransaction('${tx.id}')" title="${escHtml(t('btn_delete'))}">🗑️</span>`;
+  return`<div class="tx-row">
       <div class="tx-icon" style="background:${bgColor}">
         ${tx.cat?tx.cat.split(' ')[0]:(isTransfer?'🔄':tx.type==='income'?'💵':'💸')}
       </div>
       <div style="flex:1;min-width:0">
         <div class="tx-name">${escHtml(tx.desc)}</div>
-        <div class="tx-cat">${escHtml(catText)} · ${fmtDate(tx.date)}</div>
+        <div class="tx-cat">${catPart}${fmtDate(tx.date)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <div class="tx-amount ${amtColor}">${isTransfer?'':prefix}$${fmtNum(tx.amount)}</div>
-        ${tx.type==='expense'?`<span style="font-size:.8rem;cursor:pointer;color:var(--accent)" onclick="editExpense('${tx.id}')" title="Edit">✏️</span>`:''}
+        ${editBtn}${delBtn}
       </div>
     </div>`;
-  }).join('');
+}
+
+let lastOpenedCategory=null;
+function refreshOpenTxModals(){
+  if(document.getElementById('all-transactions-modal').classList.contains('open')) openAllTransactionsModal();
+  if(document.getElementById('category-detail-modal').classList.contains('open')&&lastOpenedCategory) openCategoryDetail(lastOpenedCategory);
+}
+async function deleteTransaction(id){
+  if(!confirm(t('confirm_delete_tx')))return;
+  try{
+    await api('DELETE','/api/transactions/'+id);
+  }catch(e){ alert(e.message); return; }
+  store.transactions=store.transactions.filter(tx=>tx.id!==id);
+  await refreshAccounts();
+  renderFinancesScreen();
+  if(document.getElementById('screen-stats').classList.contains('active')) renderStats();
+  refreshOpenTxModals();
+  showToast(t('toast_tx_deleted'));
+}
+
+function renderRecentTransactions(){
+  const transactions=getData('transactions').slice().reverse().slice(0,12);
+  const el=document.getElementById('recent-transactions');
+  if(!transactions.length){el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}<br/>${escHtml(t('empty_add_tx_hint'))}</p></div>`;return;}
+  el.innerHTML=transactions.map(tx=>txRowHTML(tx,{showCat:true})).join('');
 }
 
 function renderIncomeChart(){
@@ -2469,6 +2502,7 @@ function renderReminders(){
 //  CATEGORY DRILL-DOWN
 // ════════════════════════════════════════════════════
 function openCategoryDetail(catKey){
+  lastOpenedCategory=catKey;
   const transactions=getData('transactions').filter(tx=>tx.type==='expense'&&tx.cat===catKey).sort((a,b)=>b.date.localeCompare(a.date));
   const total=transactions.reduce((s,tx)=>s+tx.amount,0);
   document.getElementById('cat-detail-title').textContent=catLabel(catKey);
@@ -2476,15 +2510,7 @@ function openCategoryDetail(catKey){
   const el=document.getElementById('cat-detail-list');
   if(!transactions.length){ el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('cat_detail_no_expenses'))}</p></div>`; }
   else{
-    el.innerHTML=transactions.map(tx=>`
-      <div class="tx-row">
-        <div class="tx-icon" style="background:#fee2e2">${catKey.split(' ')[0]}</div>
-        <div style="flex:1;min-width:0">
-          <div class="tx-name">${escHtml(tx.desc)}</div>
-          <div class="tx-cat">${fmtDate(tx.date)}</div>
-        </div>
-        <div class="tx-amount text-red">-$${fmtNum(tx.amount)}</div>
-      </div>`).join('');
+    el.innerHTML=transactions.map(tx=>txRowHTML(tx,{showCat:false})).join('');
   }
   document.getElementById('category-detail-modal').classList.add('open');
 }
@@ -2492,7 +2518,48 @@ function openCategoryDetail(catKey){
 // ════════════════════════════════════════════════════
 //  SAVINGS GOALS
 // ════════════════════════════════════════════════════
+function openPersonalGoalModal(){
+  document.getElementById('goal-is-mutual').value='0';
+  document.getElementById('goal-mutual-edit-id').value='';
+  document.getElementById('goal-modal-title').textContent=t('modal_new_goal');
+  document.getElementById('goal-save-btn').textContent=t('btn_create_goal');
+  document.getElementById('goal-name').value='';
+  document.getElementById('goal-target').value='';
+  document.getElementById('goal-start').value='0';
+  document.getElementById('goal-date').value='';
+  openModal('add-goal-modal');
+}
+function openMutualGoalModal(editId){
+  if(!mutualPartner)return;
+  populateSelects();
+  document.getElementById('goal-is-mutual').value='1';
+  document.getElementById('goal-mutual-edit-id').value=editId||'';
+  if(editId){
+    const g=store.mutualGoals.find(x=>x.id===editId);
+    if(g){
+      document.getElementById('goal-name').value=g.name;
+      document.getElementById('goal-type').value=g.type;
+      document.getElementById('goal-target').value=g.target;
+      document.getElementById('goal-start').value=g.saved;
+      document.getElementById('goal-date').value=g.date||'';
+      document.getElementById('goal-acct-select').value=g.acctId||'';
+    }
+    document.getElementById('goal-modal-title').textContent=t('modal_edit_shared_goal');
+    document.getElementById('goal-save-btn').textContent=t('btn_save_changes');
+  } else {
+    document.getElementById('goal-name').value='';
+    document.getElementById('goal-target').value='';
+    document.getElementById('goal-start').value='0';
+    document.getElementById('goal-date').value='';
+    document.getElementById('goal-acct-select').value='';
+    document.getElementById('goal-modal-title').textContent=t('modal_new_shared_goal');
+    document.getElementById('goal-save-btn').textContent=t('btn_create_goal');
+  }
+  document.getElementById('add-goal-modal').classList.add('open');
+}
 async function addGoal(){
+  const isMutual=document.getElementById('goal-is-mutual').value==='1';
+  const mutualEditId=document.getElementById('goal-mutual-edit-id').value;
   const name=document.getElementById('goal-name').value.trim();
   const type=document.getElementById('goal-type').value;
   const target=parseFloat(document.getElementById('goal-target').value)||0;
@@ -2502,15 +2569,28 @@ async function addGoal(){
   if(!name){alert('Please enter a goal name.');return;}
   if(!target||target<=0){alert('Please enter a target amount.');return;}
   try{
-    const g=await api('POST','/api/goals',{name,category:type,target,saved:start,targetDate:date,acctId});
-    store.goals.push(normalizeGoal(g));
+    if(isMutual){
+      if(mutualEditId){
+        const g=await api('PATCH','/api/goals/'+mutualEditId,{name,category:type,target,saved:Math.min(start,target),targetDate:date,acctId});
+        const idx=store.mutualGoals.findIndex(x=>x.id===mutualEditId);
+        if(idx>=0) store.mutualGoals[idx]=normalizeGoal(g);
+      } else {
+        const g=await api('POST','/api/goals',{name,category:type,target,saved:start,targetDate:date,acctId,isMutual:true,partnerUsername:mutualPartner});
+        store.mutualGoals.push(normalizeGoal(g));
+      }
+    } else {
+      const g=await api('POST','/api/goals',{name,category:type,target,saved:start,targetDate:date,acctId});
+      store.goals.push(normalizeGoal(g));
+    }
   }catch(e){ alert(e.message); return; }
   closeModal('add-goal-modal');
   document.getElementById('goal-name').value='';
   document.getElementById('goal-target').value='';
   document.getElementById('goal-start').value='0';
   document.getElementById('goal-date').value='';
-  renderGoals();
+  document.getElementById('goal-is-mutual').value='0';
+  document.getElementById('goal-mutual-edit-id').value='';
+  if(isMutual) renderMutualGoalsList(); else renderGoals();
 }
 function openEditGoal(id){
   const g=getData('goals').find(x=>x.id===id);
@@ -2538,31 +2618,83 @@ async function saveGoalEdit(){
   }catch(e){ alert(e.message); return; }
   closeModal('edit-goal-modal');
   renderGoals();
-  showToast(t('toast_logged'));
+  showToast(t('toast_goal_updated'));
+}
+function openContributeModal(){
+  document.getElementById('contrib-is-mutual').value='0';
+  openModal('contribute-modal');
+}
+function openMutualContribute(goalId){
+  const g=store.mutualGoals.find(x=>x.id===goalId);
+  if(!g)return;
+  document.getElementById('contrib-is-mutual').value='1';
+  document.getElementById('contrib-goal-select').innerHTML=`<option value="${g.id}">${escHtml(g.name)} ($${fmtNum(g.saved)} / $${fmtNum(g.target)})</option>`;
+  document.getElementById('contrib-amount').value='';
+  document.getElementById('contribute-modal').classList.add('open');
 }
 async function contributeToGoal(){
+  const isMutual=document.getElementById('contrib-is-mutual').value==='1';
   const id=document.getElementById('contrib-goal-select').value;
   const amount=parseFloat(document.getElementById('contrib-amount').value)||0;
   if(!id){alert('Please create a goal first.');return;}
   if(!amount||amount<=0){alert('Please enter a valid amount.');return;}
-  const goal=store.goals.find(g=>g.id===id);
+  const list=isMutual?store.mutualGoals:store.goals;
+  const goal=list.find(g=>g.id===id);
   if(!goal)return;
   const newSaved=Math.min(goal.saved+amount,goal.target);
   try{
     const g=await api('PATCH','/api/goals/'+id,{saved:newSaved});
-    const idx=store.goals.findIndex(x=>x.id===id); store.goals[idx]=normalizeGoal(g);
+    const idx=list.findIndex(x=>x.id===id); list[idx]=normalizeGoal(g);
   }catch(e){ alert(e.message); return; }
   closeModal('contribute-modal');
   document.getElementById('contrib-amount').value='';
-  renderGoals();
-  const g=store.goals.find(x=>x.id===id);
-  if(g&&g.saved>=g.target) sendNotification('Goal Reached! 🎉',g.name);
+  if(isMutual) renderMutualGoalsList(); else renderGoals();
+  const g2=list.find(x=>x.id===id);
+  if(g2&&g2.saved>=g2.target) sendNotification('Goal Reached! 🎉',g2.name);
 }
 async function deleteGoal(id){
   if(!confirm('Delete this savings goal?'))return;
   try{ await api('DELETE','/api/goals/'+id); }catch(e){ alert(e.message); return; }
   store.goals=store.goals.filter(g=>g.id!==id);
   renderGoals();
+}
+async function deleteMutualGoal(id){
+  if(!confirm('Delete this shared goal?'))return;
+  try{ await api('DELETE','/api/goals/'+id); }catch(e){ alert(e.message); return; }
+  store.mutualGoals=store.mutualGoals.filter(g=>g.id!==id);
+  renderMutualGoalsList();
+}
+function renderMutualGoalsList(){
+  const el=document.getElementById('mutual-goals-list');
+  if(!el)return;
+  if(!mutualPartner){ el.innerHTML=''; return; }
+  const goals=store.mutualGoals;
+  if(!goals.length){ el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_shared_goals'))}</p></div>`; return; }
+  el.innerHTML=goals.map(g=>{
+    const pct=g.target>0?Math.min(Math.round(g.saved/g.target*100),100):0;
+    const remaining=Math.max(g.target-g.saved,0);
+    const pClass=pct>=100?'green':pct>=60?'':'gold';
+    const emoji=(g.type||'').split(' ')[0];
+    return`<div class="envelope">
+      <div class="envelope-top">
+        <span class="envelope-icon">${emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div class="envelope-name">${escHtml(g.name)}</div>
+          <div class="envelope-amounts">$${fmtNum(g.saved)} · $${fmtNum(remaining)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0"><div class="envelope-pct">${pct}%</div></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pClass}" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-top:4px">
+        <span>$${fmtNum(g.saved)}</span><span>$${fmtNum(g.target)}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <span style="font-size:.72rem;cursor:pointer;color:var(--green);background:var(--surface-2);padding:3px 8px;border-radius:6px" onclick="openMutualContribute('${g.id}')">💸 ${escHtml(t('btn_add_funds'))}</span>
+        <span style="font-size:.72rem;cursor:pointer;color:var(--accent);background:var(--surface-2);padding:3px 8px;border-radius:6px" onclick="openMutualGoalModal('${g.id}')">✏️ ${escHtml(t('btn_edit'))}</span>
+        <span style="font-size:.72rem;cursor:pointer;color:var(--red);background:var(--surface-2);padding:3px 8px;border-radius:6px" onclick="deleteMutualGoal('${g.id}')">🗑️</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderGoals(){

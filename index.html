@@ -1027,7 +1027,7 @@ async function api(method,path,body){
 }
 
 function normalizeAccount(a){ return {id:a._id||a.id,name:a.name,type:a.type,balance:a.balance}; }
-function normalizeTransaction(t){ return {id:t._id||t.id,type:t.type,amount:t.amount,desc:t.desc,acctId:t.accountId,toAcctId:t.toAccountId,date:t.date,cat:t.category}; }
+function normalizeTransaction(t){ return {id:t._id||t.id,type:t.type,amount:t.amount,desc:t.desc,acctId:t.accountId,toAcctId:t.toAccountId,date:t.date,cat:t.category,createdAt:t.createdAt||null}; }
 function normalizeBill(b){ return {id:b._id||b.id,name:b.name,amount:b.amount,date:b.startDate,recur:b.recur,endDate:b.endDate,paid:b.paid,acctId:b.acctId,cat:b.category}; }
 function normalizePayday(p){ return {id:p._id||p.id,label:p.label,amount:p.amount,date:p.startDate,freq:p.freq,endDate:p.endDate,acctId:p.acctId}; }
 function normalizeGoal(g){ return {id:g._id||g.id,name:g.name,type:g.category,target:g.target,saved:g.saved,date:g.targetDate,met:g.met,acctId:g.acctId}; }
@@ -1336,7 +1336,7 @@ async function saveNewCategory(){
 
 // ── "View All by Category" (home screen) ───────────────────────────────────
 function openAllTransactionsModal(){
-  const transactions=getData('transactions').slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const transactions=getData('transactions').slice().sort(compareTxRecency);
   const groups={};
   transactions.forEach(tx=>{
     const key=tx.cat||(tx.type==='income'?'💵 Income':tx.type==='transfer'?'🔄 Transfer':'💼 Other');
@@ -1968,8 +1968,13 @@ async function deleteTransaction(id){
   showToast(t('toast_tx_deleted'));
 }
 
+function compareTxRecency(a,b){
+  const at=a.createdAt?new Date(a.createdAt).getTime():new Date(a.date+'T00:00:00').getTime();
+  const bt=b.createdAt?new Date(b.createdAt).getTime():new Date(b.date+'T00:00:00').getTime();
+  return bt-at;
+}
 function renderRecentTransactions(){
-  const transactions=getData('transactions').slice().reverse().slice(0,12);
+  const transactions=getData('transactions').slice().sort(compareTxRecency).slice(0,12);
   const el=document.getElementById('recent-transactions');
   if(!transactions.length){el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}<br/>${escHtml(t('empty_add_tx_hint'))}</p></div>`;return;}
   el.innerHTML=transactions.map(tx=>txRowHTML(tx,{showCat:true})).join('');
@@ -2503,7 +2508,7 @@ function renderReminders(){
 // ════════════════════════════════════════════════════
 function openCategoryDetail(catKey){
   lastOpenedCategory=catKey;
-  const transactions=getData('transactions').filter(tx=>tx.type==='expense'&&tx.cat===catKey).sort((a,b)=>b.date.localeCompare(a.date));
+  const transactions=getData('transactions').filter(tx=>tx.type==='expense'&&tx.cat===catKey).sort(compareTxRecency);
   const total=transactions.reduce((s,tx)=>s+tx.amount,0);
   document.getElementById('cat-detail-title').textContent=catLabel(catKey);
   document.getElementById('cat-detail-total').textContent='$'+fmtNum(total)+' · '+transactions.length+(transactions.length===1?t('expense_singular'):t('expense_plural'));

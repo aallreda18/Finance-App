@@ -353,7 +353,10 @@ app.patch('/api/goals/:id', auth, async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.delete('/api/goals/:id', auth, async (req, res) => {
-  await Goal.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+  await Goal.findOneAndDelete({
+    _id: req.params.id,
+    $or: [{ userId: req.user.id }, { isMutual: true, partnerUsername: req.user.username }]
+  });
   res.json({ ok: true });
 });
 

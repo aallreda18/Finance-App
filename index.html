@@ -329,6 +329,22 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <div id="monthly-summary-content"></div>
       </div>
 
+      <!-- CATEGORY BREAKDOWN (donut chart + %, follows the Monthly Summary's selected month) -->
+      <div class="card">
+        <div class="card-title" id="catbreakdown-month-label" data-i18n="card_cat_breakdown">Expenses by Category</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="chart-wrap" style="height:150px;width:150px;flex-shrink:0"><canvas id="cat-breakdown-chart"></canvas></div>
+          <div id="cat-breakdown-legend" style="flex:1;font-size:.78rem;line-height:1.9;min-width:0"></div>
+        </div>
+      </div>
+
+      <!-- CATEGORY AVERAGES (weekly & monthly, trailing 6 months) -->
+      <div class="card">
+        <div class="card-title" data-i18n="card_category_averages">Average Spending by Category</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin:-6px 0 10px" data-i18n="avg_note">Based on the last 6 months</div>
+        <div id="category-averages-list"></div>
+      </div>
+
       <!-- BUDGET SECTION -->
       <div class="card" id="budget-card">
         <div class="section-header" style="margin-bottom:12px">
@@ -1055,6 +1071,7 @@ tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
 card_budget_tracker:'💰 Budget Tracker',btn_add_budget:'+ Add Budget',empty_no_budgets:'No budgets set yet. Tap "+ Add Budget" to set spending limits.',
+card_cat_breakdown:'Expenses by Category',card_category_averages:'Average Spending by Category',avg_note:'Based on the last 6 months',
 ai_title:'✨ AI Spending Analysis',ai_subtitle:'Powered by Claude · updates with your data',btn_analyze:'Analyze 🔍',btn_analyzing:'Analyzing…',btn_reanalyze:'Re-analyze 🔍',
 ai_run_prompt:'Get a full AI-written analysis of your spending patterns, habits, and personalized suggestions.',ai_cat_title:'This Month by Category',empty_no_expenses_month:'Add expenses to see your spending breakdown.',score_default_label:'Run the analysis to get your spending score.',
 btn_add_bill:'Add Bill',btn_add_payday:'Add Payday',card_bills_due:'Bills Due',empty_no_bills:'No bills added yet.',card_paydays:'Paydays',empty_no_paydays:'No paydays set yet.',
@@ -1106,6 +1123,7 @@ tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
 card_budget_tracker:'💰 Seguimiento de Presupuesto',btn_add_budget:'+ Agregar Presupuesto',empty_no_budgets:'Aún no hay presupuestos. Toca "+ Agregar Presupuesto" para fijar límites de gasto.',
+card_cat_breakdown:'Gastos por Categoría',card_category_averages:'Gasto Promedio por Categoría',avg_note:'Basado en los últimos 6 meses',
 ai_title:'✨ Análisis de Gastos con IA',ai_subtitle:'Con tecnología de Claude · se actualiza con tus datos',btn_analyze:'Analizar 🔍',btn_analyzing:'Analizando…',btn_reanalyze:'Reanalizar 🔍',
 ai_run_prompt:'Obtén un análisis completo escrito por IA de tus patrones de gasto, hábitos y sugerencias personalizadas.',ai_cat_title:'Este Mes por Categoría',empty_no_expenses_month:'Agrega gastos para ver tu desglose de gastos.',score_default_label:'Ejecuta el análisis para obtener tu puntaje financiero.',
 btn_add_bill:'Agregar Factura',btn_add_payday:'Agregar Día de Pago',card_bills_due:'Facturas Pendientes',empty_no_bills:'Aún no hay facturas agregadas.',card_paydays:'Días de Pago',empty_no_paydays:'Aún no hay días de pago configurados.',
@@ -1157,6 +1175,7 @@ tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
 card_budget_tracker:'💰 예산 관리',btn_add_budget:'+ 예산 추가',empty_no_budgets:'아직 설정된 예산이 없습니다. "+ 예산 추가"를 눌러 지출 한도를 설정하세요.',
+card_cat_breakdown:'카테고리별 지출',card_category_averages:'카테고리별 평균 지출',avg_note:'최근 6개월 기준',
 ai_title:'✨ AI 지출 분석',ai_subtitle:'Claude 기반 · 데이터에 따라 업데이트됨',btn_analyze:'분석하기 🔍',btn_analyzing:'분석 중…',btn_reanalyze:'다시 분석하기 🔍',
 ai_run_prompt:'지출 패턴, 습관, 맞춤 제안에 대한 전체 AI 분석을 받아보세요.',ai_cat_title:'이번 달 카테고리별 지출',empty_no_expenses_month:'지출을 추가하면 내역이 표시됩니다.',score_default_label:'분석을 실행하여 재정 점수를 확인하세요.',
 btn_add_bill:'청구서 추가',btn_add_payday:'급여일 추가',card_bills_due:'예정된 청구서',empty_no_bills:'아직 등록된 청구서가 없습니다.',card_paydays:'급여일',empty_no_paydays:'아직 설정된 급여일이 없습니다.',
@@ -1208,6 +1227,7 @@ tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
 card_budget_tracker:'💰 予算トラッカー',btn_add_budget:'+ 予算を追加',empty_no_budgets:'まだ予算が設定されていません。「+ 予算を追加」で支出上限を設定しましょう。',
+card_cat_breakdown:'カテゴリ別支出',card_category_averages:'カテゴリ別平均支出',avg_note:'過去6か月に基づく',
 ai_title:'✨ AI支出分析',ai_subtitle:'Claude搭載 · データに応じて更新',btn_analyze:'分析する 🔍',btn_analyzing:'分析中…',btn_reanalyze:'再分析する 🔍',
 ai_run_prompt:'あなたの支出パターン・習慣・改善提案について、AIによる詳細な分析を確認できます。',ai_cat_title:'今月のカテゴリ別支出',empty_no_expenses_month:'支出を追加すると内訳が表示されます。',score_default_label:'分析を実行して家計スコアを確認しましょう。',
 btn_add_bill:'請求書を追加',btn_add_payday:'給料日を追加',card_bills_due:'支払い予定の請求書',empty_no_bills:'まだ請求書が追加されていません。',card_paydays:'給料日',empty_no_paydays:'まだ給料日が設定されていません。',
@@ -1354,14 +1374,32 @@ function openAllTransactionsModal(){
   } else {
     el.innerHTML=order.map(cat=>{
       const items=groups[cat];
-      const rows=items.map(tx=>txRowHTML(tx,{showCat:false})).join('');
       const catTotal=items.reduce((s,tx)=>s+tx.amount,0);
+      const monthGroups={};
+      items.forEach(tx=>{
+        const mk=(tx.date||'').slice(0,7)||'—';
+        (monthGroups[mk]=monthGroups[mk]||[]).push(tx);
+      });
+      const monthKeys=Object.keys(monthGroups).sort((a,b)=>b.localeCompare(a));
+      const monthsHTML=monthKeys.map(mk=>{
+        const monthItems=monthGroups[mk];
+        const monthTotal=monthItems.reduce((s,tx)=>s+tx.amount,0);
+        const monthLabel=mk==='—'?'—':new Date(mk+'-01T00:00:00').toLocaleDateString(localeForLang(),{month:'long',year:'numeric'});
+        const rows=monthItems.map(tx=>txRowHTML(tx,{showCat:false})).join('');
+        return`<div style="margin:8px 0 4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;padding:4px 2px">
+            <span>${escHtml(monthLabel)}</span>
+            <span>$${fmtNum(monthTotal)}</span>
+          </div>
+          ${rows}
+        </div>`;
+      }).join('');
       return`<div style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:2px solid var(--border);margin-bottom:4px">
           <span style="font-weight:700;font-size:.85rem">${escHtml(catLabel(cat))}</span>
           <span style="font-size:.78rem;font-weight:700;color:var(--text-secondary)">${items.length} · $${fmtNum(catTotal)}</span>
         </div>
-        ${rows}
+        ${monthsHTML}
       </div>`;
     }).join('');
   }
@@ -2024,6 +2062,7 @@ function renderStats(){
   renderPieChart();
   renderWeeklySummary();
   renderMonthlySummary();
+  renderCategoryAverages();
   renderBudgets();
   renderCategoryBars();
 }
@@ -2128,6 +2167,85 @@ function renderMonthlySummary(){
   const s=getSummaryFor('month',statMonthOffset);
   document.getElementById('monthly-summary-label').textContent=statMonthOffset===0?t('lbl_monthly_summary'):s.rangeLabel;
   document.getElementById('monthly-summary-content').innerHTML=summaryHTML(s);
+  renderCategoryBreakdownChart();
+}
+
+// ── Expenses by Category: donut chart + % breakdown, follows Monthly Summary's selected month ──
+let categoryBreakdownChart;
+function getCategoryBreakdown(offset){
+  offset=offset||0;
+  const now=new Date();
+  const target=new Date(now.getFullYear(),now.getMonth()-offset,1);
+  const mk=target.getFullYear()+'-'+String(target.getMonth()+1).padStart(2,'0');
+  const monthExp=getData('transactions').filter(tx=>tx.type==='expense'&&tx.date&&tx.date.startsWith(mk));
+  const cats={};
+  monthExp.forEach(tx=>{ const key=tx.cat||'💼 Other'; cats[key]=(cats[key]||0)+tx.amount; });
+  const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  return{sorted,total,label:target.toLocaleDateString(localeForLang(),{month:'long',year:'numeric'})};
+}
+function renderCategoryBreakdownChart(){
+  const canvas=document.getElementById('cat-breakdown-chart');
+  const legendEl=document.getElementById('cat-breakdown-legend');
+  const labelEl=document.getElementById('catbreakdown-month-label');
+  if(!canvas||!legendEl)return;
+  const{sorted,total,label}=getCategoryBreakdown(statMonthOffset);
+  if(labelEl) labelEl.textContent=t('card_cat_breakdown')+' · '+label;
+  const ctx=canvas.getContext('2d');
+  if(categoryBreakdownChart){ categoryBreakdownChart.destroy(); categoryBreakdownChart=null; }
+  if(!sorted.length){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    legendEl.innerHTML=`<p class="fs-sm">${escHtml(t('empty_no_expenses_month'))}</p>`;
+    return;
+  }
+  const colors=['#2563eb','#7c3aed','#db2777','#ea580c','#ca8a04','#16a34a','#0891b2','#4f46e5','#dc2626','#059669','#9333ea','#64748b'];
+  categoryBreakdownChart=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:sorted.map(([c])=>catLabel(c)),datasets:[{data:sorted.map(([,v])=>v),backgroundColor:colors.slice(0,sorted.length),borderWidth:0,hoverOffset:6}]},
+    options:{cutout:'62%',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` $${fmtNum(c.parsed)} (${total>0?Math.round(c.parsed/total*100):0}%)`}}}}
+  });
+  legendEl.innerHTML=sorted.map(([cat,amt],i)=>{
+    const pct=total>0?Math.round(amt/total*100):0;
+    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;cursor:pointer" onclick="openCategoryDetail('${escHtml(cat)}')">
+      <span style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></span>
+      <span style="color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(catLabel(cat))}</span>
+      <span style="font-weight:600;flex-shrink:0">$${fmtNum(amt)} · ${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Average Spending by Category: weekly & monthly averages over the trailing 6 months ──
+function getCategoryAverages(){
+  const last6=getLast6Months();
+  const now=new Date();
+  const windowStart=new Date(now.getFullYear(),now.getMonth()-5,1);
+  const weeksInWindow=Math.max(1,Math.round((now-windowStart)/(7*86400000)));
+  const monthsInWindow=last6.length;
+  const cats={};
+  getData('transactions').filter(tx=>tx.type==='expense').forEach(tx=>{
+    if(!tx.date)return;
+    if(!last6.some(m=>tx.date.startsWith(m.key)))return;
+    const key=tx.cat||'💼 Other';
+    cats[key]=(cats[key]||0)+tx.amount;
+  });
+  return Object.entries(cats).map(([cat,total])=>({cat,total,weeklyAvg:total/weeksInWindow,monthlyAvg:total/monthsInWindow})).sort((a,b)=>b.total-a.total);
+}
+function renderCategoryAverages(){
+  const el=document.getElementById('category-averages-list');
+  if(!el)return;
+  const data=getCategoryAverages();
+  if(!data.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_expenses_month'))}</div>`; return; }
+  const header=`<div style="display:flex;font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;padding:0 2px 6px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <span style="flex:1">${escHtml(t('lbl_category'))}</span>
+      <span style="width:76px;text-align:right">${escHtml(t('tab_weekly'))}</span>
+      <span style="width:76px;text-align:right">${escHtml(t('tab_monthly'))}</span>
+    </div>`;
+  el.innerHTML=header+data.map(d=>`
+    <div style="display:flex;align-items:center;padding:7px 2px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openCategoryDetail('${escHtml(d.cat)}')">
+      <span style="flex:1;font-size:.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(catLabel(d.cat))}</span>
+      <span style="width:76px;text-align:right;font-size:.82rem;font-weight:600">$${fmtNum(d.weeklyAvg)}</span>
+      <span style="width:76px;text-align:right;font-size:.82rem;font-weight:600">$${fmtNum(d.monthlyAvg)}</span>
+    </div>`).join('');
 }
 
 // ════════════════════════════════════════════════════

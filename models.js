@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema({
   colorScheme:      { type: String, default: 'royal' },   // royal | emerald | violet | rose | slate-dark
   language:         { type: String, default: 'en' },      // en | ko | ja | es
   customCategories: { type: [String], default: [] },       // user-created expense categories, e.g. "🎮 Gaming"
+  // Password recovery (security question). The answer is stored only as a bcrypt hash of the normalized answer.
+  securityQuestion:   { type: String, default: null },
+  securityAnswerHash: { type: String, default: null },
+  recoveryFailCount:  { type: Number, default: 0 },       // wrong answers since last success/lockout
+  recoveryLockUntil:  { type: Date,   default: null },    // recovery attempts blocked until this time
 }, { timestamps: true });
 
 // ── Account ───────────────────────────────────────────────────────────────

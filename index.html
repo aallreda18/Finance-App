@@ -209,16 +209,41 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
   </div>
   <h1 class="auth-title">MyFinances</h1>
   <p class="auth-sub">Your personal finance companion</p>
-  <div class="auth-tabs">
+  <div class="auth-tabs" id="auth-tabs">
     <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
     <div class="auth-tab" onclick="switchAuthTab('register')">Create Account</div>
   </div>
-  <div class="auth-form">
+  <div class="auth-form" id="auth-main-form">
     <div id="auth-name-wrap" style="display:none"><input type="text" id="auth-fullname" placeholder="Full Name"/></div>
     <input type="text" id="auth-username" placeholder="Username" autocomplete="username"/>
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password"/>
+    <div id="auth-recovery-wrap" style="display:none;flex-direction:column;gap:12px">
+      <input type="text" id="auth-secq" list="auth-secq-list" placeholder="Security question (pick one or write your own)" maxlength="150" autocomplete="off"/>
+      <datalist id="auth-secq-list"></datalist>
+      <input type="text" id="auth-seca" placeholder="Answer to your security question" maxlength="100" autocomplete="off"/>
+      <div style="font-size:.74rem;color:var(--text-muted);line-height:1.4">You'll need this to reset your password if you ever forget it. The answer isn't case-sensitive.</div>
+    </div>
     <div class="auth-error" id="auth-error"></div>
     <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Sign In</button>
+    <div id="auth-forgot-link" style="text-align:center"><span onclick="showForgotView()" style="font-size:.85rem;color:var(--accent);cursor:pointer;font-weight:600">Forgot password?</span></div>
+  </div>
+  <div class="auth-form" id="auth-forgot-form" style="display:none">
+    <div style="font-size:1.1rem;font-weight:700;text-align:center">Reset your password</div>
+    <div id="forgot-step1" style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:.84rem;color:var(--text-secondary);text-align:center;line-height:1.5">Enter your username and we'll ask the security question you set up.</div>
+      <input type="text" id="forgot-username" placeholder="Username" autocapitalize="none" autocorrect="off" autocomplete="username"/>
+      <button class="btn-primary" id="forgot-lookup-btn" onclick="forgotLookup()">Continue</button>
+    </div>
+    <div id="forgot-step2" style="display:none;flex-direction:column;gap:12px">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px">Your security question</div>
+      <div id="forgot-question" style="font-size:.95rem;font-weight:600;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;line-height:1.4"></div>
+      <input type="text" id="forgot-answer" placeholder="Your answer" autocomplete="off"/>
+      <input type="password" id="forgot-newpass" placeholder="New password" autocomplete="new-password"/>
+      <input type="password" id="forgot-confirm" placeholder="Confirm new password" autocomplete="new-password"/>
+      <button class="btn-primary" id="forgot-reset-btn" onclick="forgotReset()">Reset Password</button>
+    </div>
+    <div class="auth-error" id="forgot-error"></div>
+    <div style="text-align:center"><span onclick="hideForgotView()" style="font-size:.85rem;color:var(--accent);cursor:pointer;font-weight:600">← Back to sign in</span></div>
   </div>
 </div>
 
@@ -252,6 +277,7 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
     </div>
     <div class="dropdown-item" onclick="openSettings();closeUserMenu()">⚙️ <span data-i18n="menu_settings">Settings</span></div>
     <div class="dropdown-item" onclick="openModal('change-password-modal');closeUserMenu()">🔑 <span data-i18n="menu_change_password">Change Password</span></div>
+    <div class="dropdown-item" onclick="openRecoveryModal();closeUserMenu()">🛡️ <span data-i18n="menu_recovery">Account Recovery</span> <span id="um-recovery-dot" style="display:none;color:var(--red);font-weight:700">●</span></div>
     <div id="um-connect-link" class="dropdown-item" onclick="openConnectFlow();closeUserMenu()">🔗 <span data-i18n="menu_connect">Connect with Another User</span></div>
     <div id="um-mutual-link" style="display:none" class="dropdown-item" onclick="switchToMutual();closeUserMenu()">👫 <span data-i18n="menu_view_mutual">View Mutual Finances</span></div>
     <div id="um-disconnect-link" style="display:none" class="dropdown-item" onclick="disconnectPartner();closeUserMenu()">🔌 <span data-i18n="menu_disconnect">Disconnect Partner</span></div>
@@ -754,6 +780,28 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 </div>
 
 <!-- Change Password -->
+<!-- Account Recovery (security question) -->
+<div class="modal-overlay" id="recovery-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" data-i18n="modal_recovery">Account Recovery</div>
+    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.5" data-i18n="recovery_intro">Set a security question so you can reset your password if you ever forget it.</p>
+    <div id="recovery-status" style="font-size:.8rem;margin-bottom:10px;padding:8px 10px;background:var(--surface-2);border-radius:10px;line-height:1.4"></div>
+    <label data-i18n="lbl_recovery_question">Security Question</label>
+    <input type="text" id="rec-question" list="rec-question-list" data-i18n-placeholder="ph_recovery_question" placeholder="e.g. What was the name of my first pet?" maxlength="150" autocomplete="off"/>
+    <datalist id="rec-question-list"></datalist>
+    <label data-i18n="lbl_recovery_answer">Answer</label>
+    <input type="text" id="rec-answer" maxlength="100" autocomplete="off"/>
+    <label data-i18n="lbl_current_password">Current Password</label>
+    <input type="password" id="rec-password" autocomplete="current-password"/>
+    <div class="auth-error" id="rec-error"></div>
+    <div class="modal-row">
+      <button class="btn-cancel" onclick="closeModal('recovery-modal')" data-i18n="btn_cancel">Cancel</button>
+      <button class="btn-primary" onclick="saveRecovery()" data-i18n="btn_save">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="change-password-modal">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -1108,6 +1156,7 @@ settings_title:'Settings',settings_color:'Color Theme',settings_language:'Langua
 cat_detail_no_expenses:'No expenses in this category yet.',expense_singular:' expense',expense_plural:' expenses',
 modal_log_bill:'Log Payment',modal_log_payday:'Log Payday',lbl_occ_amount:'Amount ($)',lbl_occ_account:'Account',lbl_occ_date:'Date',btn_confirm:'Confirm',toast_logged:'Logged ✅',
 btn_delete:'Delete',confirm_delete_tx:'Delete this transaction? This cannot be undone.',toast_tx_deleted:'Transaction deleted 🗑️',
+menu_recovery:'Account Recovery',modal_recovery:'Account Recovery',recovery_intro:'Set a security question so you can reset your password if you ever forget it. Answers are not case-sensitive.',lbl_recovery_question:'Security Question',ph_recovery_question:'e.g. What was the name of my first pet?',lbl_recovery_answer:'Answer',recovery_status_set:'Current question:',recovery_status_none:'⚠️ No recovery question set yet. Without one, a forgotten password cannot be reset.',toast_recovery_saved:'Recovery question saved ✅',recovery_nudge:'Set up Account Recovery in your profile menu 🛡️',recovery_suggestions:'What was the name of your first pet?|What city were you born in?|What was the name of your first school?|What was your childhood nickname?|What was the make of your first car?',
 card_shared_goals:'Shared Goals',btn_add_shared_goal:'+ New Shared Goal',empty_no_shared_goals:'No shared goals yet. Tap "+ New Shared Goal" to create one together.',modal_new_shared_goal:'New Shared Goal',modal_edit_shared_goal:'Edit Shared Goal',
 },
 es:{
@@ -1160,6 +1209,7 @@ settings_title:'Configuración',settings_color:'Tema de Color',settings_language
 cat_detail_no_expenses:'Aún no hay gastos en esta categoría.',expense_singular:' gasto',expense_plural:' gastos',
 modal_log_bill:'Registrar Pago',modal_log_payday:'Registrar Día de Pago',lbl_occ_amount:'Monto ($)',lbl_occ_account:'Cuenta',lbl_occ_date:'Fecha',btn_confirm:'Confirmar',toast_logged:'Registrado ✅',
 btn_delete:'Eliminar',confirm_delete_tx:'¿Eliminar esta transacción? Esto no se puede deshacer.',toast_tx_deleted:'Transacción eliminada 🗑️',
+menu_recovery:'Recuperación de Cuenta',modal_recovery:'Recuperación de Cuenta',recovery_intro:'Configura una pregunta de seguridad para poder restablecer tu contraseña si alguna vez la olvidas. La respuesta no distingue mayúsculas de minúsculas.',lbl_recovery_question:'Pregunta de Seguridad',ph_recovery_question:'ej. ¿Cómo se llamaba mi primera mascota?',lbl_recovery_answer:'Respuesta',recovery_status_set:'Pregunta actual:',recovery_status_none:'⚠️ Aún no hay pregunta de recuperación. Sin una, no se podrá restablecer una contraseña olvidada.',toast_recovery_saved:'Pregunta de recuperación guardada ✅',recovery_nudge:'Configura la Recuperación de Cuenta en tu menú de perfil 🛡️',recovery_suggestions:'¿Cómo se llamaba tu primera mascota?|¿En qué ciudad naciste?|¿Cómo se llamaba tu primera escuela?|¿Cuál era tu apodo de la infancia?|¿De qué marca fue tu primer auto?',
 card_shared_goals:'Metas Compartidas',btn_add_shared_goal:'+ Nueva Meta Compartida',empty_no_shared_goals:'Aún no hay metas compartidas. Toca "+ Nueva Meta Compartida" para crear una juntos.',modal_new_shared_goal:'Nueva Meta Compartida',modal_edit_shared_goal:'Editar Meta Compartida',
 },
 ko:{
@@ -1212,6 +1262,7 @@ settings_title:'설정',settings_color:'색상 테마',settings_language:'언어
 cat_detail_no_expenses:'이 카테고리에 아직 지출이 없습니다.',expense_singular:'건',expense_plural:'건',
 modal_log_bill:'납부 기록',modal_log_payday:'급여 기록',lbl_occ_amount:'금액 ($)',lbl_occ_account:'계좌',lbl_occ_date:'날짜',btn_confirm:'확인',toast_logged:'기록되었습니다 ✅',
 btn_delete:'삭제',confirm_delete_tx:'이 거래를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',toast_tx_deleted:'거래가 삭제되었습니다 🗑️',
+menu_recovery:'계정 복구',modal_recovery:'계정 복구',recovery_intro:'비밀번호를 잊어버렸을 때 재설정할 수 있도록 보안 질문을 설정하세요. 답변은 대소문자를 구분하지 않습니다.',lbl_recovery_question:'보안 질문',ph_recovery_question:'예: 내 첫 반려동물의 이름은?',lbl_recovery_answer:'답변',recovery_status_set:'현재 질문:',recovery_status_none:'⚠️ 아직 복구 질문이 없습니다. 설정하지 않으면 잊어버린 비밀번호를 재설정할 수 없습니다.',toast_recovery_saved:'복구 질문이 저장되었습니다 ✅',recovery_nudge:'프로필 메뉴에서 계정 복구를 설정하세요 🛡️',recovery_suggestions:'첫 반려동물의 이름은 무엇인가요?|태어난 도시는 어디인가요?|첫 번째 학교의 이름은 무엇인가요?|어릴 적 별명은 무엇인가요?|첫 번째 자동차의 브랜드는 무엇인가요?',
 card_shared_goals:'공동 목표',btn_add_shared_goal:'+ 공동 목표 추가',empty_no_shared_goals:'아직 공동 목표가 없습니다. "+ 공동 목표 추가"를 눌러 함께 만들어보세요.',modal_new_shared_goal:'새 공동 목표',modal_edit_shared_goal:'공동 목표 수정',
 },
 ja:{
@@ -1264,6 +1315,7 @@ settings_title:'設定',settings_color:'カラーテーマ',settings_language:'�
 cat_detail_no_expenses:'このカテゴリにはまだ支出がありません。',expense_singular:'件',expense_plural:'件',
 modal_log_bill:'支払いを記録',modal_log_payday:'給料を記録',lbl_occ_amount:'金額 ($)',lbl_occ_account:'口座',lbl_occ_date:'日付',btn_confirm:'確認',toast_logged:'記録しました ✅',
 btn_delete:'削除',confirm_delete_tx:'この取引を削除しますか？元に戻すことはできません。',toast_tx_deleted:'取引を削除しました 🗑️',
+menu_recovery:'アカウント復旧',modal_recovery:'アカウント復旧',recovery_intro:'パスワードを忘れたときに再設定できるよう、秘密の質問を設定してください。答えは大文字・小文字を区別しません。',lbl_recovery_question:'秘密の質問',ph_recovery_question:'例：最初に飼ったペットの名前は？',lbl_recovery_answer:'答え',recovery_status_set:'現在の質問：',recovery_status_none:'⚠️ 復旧用の質問が未設定です。設定しないと、忘れたパスワードを再設定できません。',toast_recovery_saved:'復旧用の質問を保存しました ✅',recovery_nudge:'プロフィールメニューでアカウント復旧を設定しましょう 🛡️',recovery_suggestions:'最初に飼ったペットの名前は？|生まれた都市は？|最初に通った学校の名前は？|子どもの頃のあだ名は？|最初の車のメーカーは？',
 card_shared_goals:'共同目標',btn_add_shared_goal:'+ 共同目標を追加',empty_no_shared_goals:'まだ共同目標がありません。「+ 共同目標を追加」で一緒に作成しましょう。',modal_new_shared_goal:'新しい共同目標',modal_edit_shared_goal:'共同目標を編集',
 }
 };
@@ -1488,15 +1540,17 @@ function switchAuthTab(mode){
   authMode=mode;
   document.querySelectorAll('.auth-tab').forEach((tb,i)=>tb.classList.toggle('active',(i===0&&mode==='login')||(i===1&&mode==='register')));
   document.getElementById('auth-name-wrap').style.display=mode==='register'?'block':'none';
+  document.getElementById('auth-recovery-wrap').style.display=mode==='register'?'flex':'none';
+  document.getElementById('auth-forgot-link').style.display=mode==='register'?'none':'block';
   document.getElementById('auth-btn').textContent=mode==='register'?'Create Account':'Sign In';
-  document.getElementById('auth-error').textContent='';
+  const ae=document.getElementById('auth-error'); ae.textContent=''; ae.style.color='';
 }
 
 async function handleAuth(){
   const username=document.getElementById('auth-username').value.trim().toLowerCase().replace(/\s+/g,'');
   const password=document.getElementById('auth-password').value;
   const err=document.getElementById('auth-error');
-  err.textContent='';
+  err.textContent=''; err.style.color='';
   if(!username||!password){err.textContent='Please fill in all fields.';return;}
   const btn=document.getElementById('auth-btn');
   btn.disabled=true;
@@ -1504,9 +1558,13 @@ async function handleAuth(){
     let data;
     if(authMode==='register'){
       const fullname=document.getElementById('auth-fullname').value.trim();
+      const securityQuestion=document.getElementById('auth-secq').value.trim();
+      const securityAnswer=document.getElementById('auth-seca').value.trim();
       if(!fullname){err.textContent='Please enter your full name.';btn.disabled=false;return;}
       if(password.length<4){err.textContent='Password must be at least 4 characters.';btn.disabled=false;return;}
-      data=await api('POST','/api/auth/register',{username,password,fullname});
+      if(securityQuestion.length<5){err.textContent='Please choose or write a security question (used to reset a forgotten password).';btn.disabled=false;return;}
+      if(securityAnswer.length<3){err.textContent='Please enter an answer of at least 3 characters.';btn.disabled=false;return;}
+      data=await api('POST','/api/auth/register',{username,password,fullname,securityQuestion,securityAnswer});
     } else {
       data=await api('POST','/api/auth/login',{username,password});
     }
@@ -1517,11 +1575,101 @@ async function handleAuth(){
   btn.disabled=false;
 }
 
+// ── Forgot password (security-question reset) ──────────────────────────────
+let forgotUsername='';
+function fillRecoverySuggestions(listId){
+  const el=document.getElementById(listId); if(!el)return;
+  el.innerHTML=t('recovery_suggestions').split('|').map(q=>`<option value="${escHtml(q)}"></option>`).join('');
+}
+function showForgotView(){
+  document.getElementById('auth-tabs').style.display='none';
+  document.getElementById('auth-main-form').style.display='none';
+  document.getElementById('auth-forgot-form').style.display='';
+  document.getElementById('forgot-step1').style.display='flex';
+  document.getElementById('forgot-step2').style.display='none';
+  document.getElementById('forgot-error').textContent='';
+  ['forgot-answer','forgot-newpass','forgot-confirm'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('forgot-username').value=document.getElementById('auth-username').value.trim();
+}
+function hideForgotView(){
+  document.getElementById('auth-forgot-form').style.display='none';
+  document.getElementById('auth-tabs').style.display='';
+  document.getElementById('auth-main-form').style.display='';
+}
+async function forgotLookup(){
+  const err=document.getElementById('forgot-error'); err.textContent='';
+  const username=document.getElementById('forgot-username').value.trim().toLowerCase().replace(/\s+/g,'');
+  if(!username){err.textContent='Please enter your username.';return;}
+  const btn=document.getElementById('forgot-lookup-btn'); btn.disabled=true;
+  try{
+    const data=await api('POST','/api/auth/forgot/question',{username});
+    forgotUsername=username;
+    document.getElementById('forgot-question').textContent=data.question;
+    document.getElementById('forgot-step1').style.display='none';
+    document.getElementById('forgot-step2').style.display='flex';
+  }catch(e){ err.textContent=e.message; }
+  btn.disabled=false;
+}
+async function forgotReset(){
+  const err=document.getElementById('forgot-error'); err.textContent='';
+  const answer=document.getElementById('forgot-answer').value;
+  const np=document.getElementById('forgot-newpass').value;
+  const cf=document.getElementById('forgot-confirm').value;
+  if(!answer.trim()){err.textContent='Please enter your answer.';return;}
+  if(np.length<4){err.textContent='New password must be at least 4 characters.';return;}
+  if(np!==cf){err.textContent='New passwords do not match.';return;}
+  const btn=document.getElementById('forgot-reset-btn'); btn.disabled=true;
+  try{
+    await api('POST','/api/auth/forgot/reset',{username:forgotUsername,answer,newPassword:np});
+    hideForgotView();
+    switchAuthTab('login');
+    document.getElementById('auth-username').value=forgotUsername;
+    document.getElementById('auth-password').value='';
+    const ae=document.getElementById('auth-error');
+    ae.style.color='var(--green)';
+    ae.textContent='Password reset! Sign in with your new password.';
+  }catch(e){ err.textContent=e.message; }
+  btn.disabled=false;
+}
+
+// ── Account Recovery settings (set/change the security question while signed in) ──
+let recoveryQuestion=null;
+function updateRecoveryIndicator(){
+  const dot=document.getElementById('um-recovery-dot');
+  if(dot) dot.style.display=recoveryQuestion?'none':'inline';
+}
+function openRecoveryModal(){
+  fillRecoverySuggestions('rec-question-list');
+  document.getElementById('rec-question').value=recoveryQuestion||'';
+  document.getElementById('rec-answer').value='';
+  document.getElementById('rec-password').value='';
+  document.getElementById('rec-error').textContent='';
+  document.getElementById('recovery-status').textContent=recoveryQuestion?(t('recovery_status_set')+' '+recoveryQuestion):t('recovery_status_none');
+  document.getElementById('recovery-modal').classList.add('open');
+}
+async function saveRecovery(){
+  const err=document.getElementById('rec-error'); err.textContent='';
+  const securityQuestion=document.getElementById('rec-question').value.trim();
+  const securityAnswer=document.getElementById('rec-answer').value.trim();
+  const currentPassword=document.getElementById('rec-password').value;
+  if(securityQuestion.length<5){err.textContent='Security question must be at least 5 characters.';return;}
+  if(securityAnswer.length<3){err.textContent='Answer must be at least 3 characters.';return;}
+  if(!currentPassword){err.textContent='Please enter your current password.';return;}
+  try{
+    const res=await api('POST','/api/auth/recovery',{currentPassword,securityQuestion,securityAnswer});
+    recoveryQuestion=res.securityQuestion;
+    updateRecoveryIndicator();
+  }catch(e){ err.textContent=e.message; return; }
+  closeModal('recovery-modal');
+  showToast(t('toast_recovery_saved'));
+}
+
 async function loginUser(user){
   currentUser=user.username;
   currentUserFullname=user.fullname||user.username;
   mutualPartner=user.partnerUsername||null;
   customCategories=user.customCategories||[];
+  recoveryQuestion=user.recoveryQuestion||null;
   applyColorScheme(user.colorScheme||'royal');
   currentLang=TR[user.language]?user.language:'en';
   document.getElementById('auth-screen').style.display='none';
@@ -1531,6 +1679,11 @@ async function loginUser(user){
   document.getElementById('um-name').textContent=currentUserFullname;
   document.getElementById('um-username').textContent='@'+currentUser;
   applyI18n();
+  updateRecoveryIndicator();
+  if(!recoveryQuestion){
+    let nudged=false; try{ nudged=!!sessionStorage.getItem('mf_rec_nudged'); sessionStorage.setItem('mf_rec_nudged','1'); }catch(e){}
+    if(!nudged) setTimeout(()=>showToast(t('recovery_nudge')),1500);
+  }
   checkMutualConnection();
   await initApp();
 }
@@ -3453,6 +3606,7 @@ if('serviceWorker' in navigator){
 // ════════════════════════════════════════════════════
 //  AUTO-LOGIN
 // ════════════════════════════════════════════════════
+fillRecoverySuggestions('auth-secq-list');
 (async function(){
   if(authToken){
     try{ const user=await api('GET','/api/auth/me'); await loginUser(user); }

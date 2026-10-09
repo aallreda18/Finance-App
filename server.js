@@ -46,22 +46,49 @@ function auth(req, res, next) {
 //  AUTH ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── Password-recovery helpers (security question) ───────────────────────────
+const RECOVERY_MAX_FAILS = 5;             // wrong answers allowed before a lockout
+const RECOVERY_LOCK_MS   = 15 * 60 * 1000; // lockout length (15 minutes)
+
+// Answers are compared case-insensitively and ignoring extra spaces
+function normalizeAnswer(a) { return String(a == null ? '' : a).trim().toLowerCase().replace(/\s+/g, ' '); }
+function validateRecovery(question, answer) {
+  const q = String(question == null ? '' : question).trim();
+  const a = normalizeAnswer(answer);
+  if (q.length < 5 || q.length > 150) return 'Security question must be between 5 and 150 characters.';
+  if (a.length < 3 || a.length > 100) return 'Answer must be between 3 and 100 characters.';
+  return null;
+}
+function publicUser(user) {
+  return {
+    username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername,
+    colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories,
+    recoveryQuestion: user.securityQuestion || null,
+  };
+}
+
 // Register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, fullname } = req.body;
+    const { username, password, fullname, securityQuestion, securityAnswer } = req.body;
     if (!username || !password || !fullname)
       return res.status(400).json({ error: 'All fields are required' });
     if (password.length < 4)
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    const recErr = validateRecovery(securityQuestion, securityAnswer);
+    if (recErr) return res.status(400).json({ error: recErr });
     const clean = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
     if (!clean) return res.status(400).json({ error: 'Invalid username' });
     if (await User.findOne({ username: clean }))
       return res.status(400).json({ error: 'Username already taken' });
     const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ username: clean, password: hash, fullname });
+    const answerHash = await bcrypt.hash(normalizeAnswer(securityAnswer), 10);
+    const user = await User.create({
+      username: clean, password: hash, fullname,
+      securityQuestion: String(securityQuestion).trim(), securityAnswerHash: answerHash,
+    });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: null, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories } });
+    res.json({ token, user: publicUser(user) });
   } catch (e) {
     console.error('Register error:', e.message);
     res.status(500).json({ error: e.message });
@@ -77,7 +104,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(401).json({ error: 'Invalid username or password' });
     const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '90d' });
-    res.json({ token, user: { username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories } });
+    res.json({ token, user: publicUser(user) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -86,7 +113,70 @@ app.get('/api/auth/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ username: user.username, fullname: user.fullname, partnerUsername: user.partnerUsername, colorScheme: user.colorScheme, language: user.language, customCategories: user.customCategories });
+    res.json(publicUser(user));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── FORGOT PASSWORD ─────────────────────────────────────────────────────────
+// Step 1 (public): get the security question for a username
+app.post('/api/auth/forgot/question', async (req, res) => {
+  try {
+    const clean = String(req.body.username || '').toLowerCase().trim();
+    const user = clean ? await User.findOne({ username: clean }) : null;
+    // Same message whether the user is unknown or has no question, so this doesn't reveal which usernames exist
+    if (!user || !user.securityQuestion || !user.securityAnswerHash)
+      return res.status(404).json({ error: 'No recovery question is set up for that username.' });
+    res.json({ question: user.securityQuestion });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Step 2 (public): check the answer and set a new password. Locks out after repeated wrong answers.
+app.post('/api/auth/forgot/reset', async (req, res) => {
+  try {
+    const clean = String(req.body.username || '').toLowerCase().trim();
+    const { answer, newPassword } = req.body;
+    const user = clean ? await User.findOne({ username: clean }) : null;
+    if (!user || !user.securityAnswerHash)
+      return res.status(400).json({ error: 'Incorrect answer.' });
+    if (user.recoveryLockUntil && user.recoveryLockUntil.getTime() > Date.now()) {
+      const mins = Math.ceil((user.recoveryLockUntil.getTime() - Date.now()) / 60000);
+      return res.status(429).json({ error: 'Too many incorrect answers. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + '.' });
+    }
+    if (!newPassword || String(newPassword).length < 4)
+      return res.status(400).json({ error: 'New password must be at least 4 characters' });
+    const ok = await bcrypt.compare(normalizeAnswer(answer), user.securityAnswerHash);
+    if (!ok) {
+      const updated = await User.findByIdAndUpdate(user._id, { $inc: { recoveryFailCount: 1 } }, { new: true });
+      if (updated.recoveryFailCount >= RECOVERY_MAX_FAILS) {
+        await User.findByIdAndUpdate(user._id, { recoveryFailCount: 0, recoveryLockUntil: new Date(Date.now() + RECOVERY_LOCK_MS) });
+        return res.status(429).json({ error: 'Too many incorrect answers. Recovery is locked for 15 minutes.' });
+      }
+      return res.status(400).json({ error: 'Incorrect answer.' });
+    }
+    user.password = await bcrypt.hash(String(newPassword), 10);
+    user.recoveryFailCount = 0;
+    user.recoveryLockUntil = null;
+    await user.save();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Set or change the security question/answer (must be signed in and confirm the current password)
+app.post('/api/auth/recovery', auth, async (req, res) => {
+  try {
+    const { currentPassword, securityQuestion, securityAnswer } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!(await bcrypt.compare(String(currentPassword || ''), user.password)))
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    const recErr = validateRecovery(securityQuestion, securityAnswer);
+    if (recErr) return res.status(400).json({ error: recErr });
+    user.securityQuestion = String(securityQuestion).trim();
+    user.securityAnswerHash = await bcrypt.hash(normalizeAnswer(securityAnswer), 10);
+    user.recoveryFailCount = 0;
+    user.recoveryLockUntil = null;
+    await user.save();
+    res.json({ securityQuestion: user.securityQuestion });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

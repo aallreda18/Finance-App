@@ -1,4 +1,4 @@
-const CACHE = 'myfinances-v2';
+const CACHE = 'myfinances-v3';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -11,12 +11,17 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// Network-first: always try the live server so new deployments show up immediately,
+// and fall back to the cached copy only when offline.
 self.addEventListener('fetch', e => {
-  // Never cache API calls — they must always hit the live server.
-  if (e.request.url.includes('/api/')) return;
+  if (e.request.method !== 'GET' || e.request.url.includes('/api/')) return; // API calls always go straight to the server
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      return cached || fetch(e.request).catch(() => caches.match('/index.html'));
-    })
+    fetch(e.request).then(res => {
+      if (res && (res.ok || res.type === 'opaque')) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+      }
+      return res;
+    }).catch(() => caches.match(e.request).then(cached => cached || caches.match('/index.html')))
   );
 });

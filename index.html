@@ -318,6 +318,11 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
           <span class="section-action" onclick="openAllTransactionsModal()" data-i18n="btn_view_all_tx">View All by Category →</span>
         </div>
       </div>
+      <div class="card">
+        <div class="card-title" data-i18n="card_spend_cats">Spending Categories</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin:-6px 0 6px" data-i18n="cat_dropdown_hint">Tap a category to see its expenses by month</div>
+        <div id="category-dropdowns"></div>
+      </div>
     </div>
 
     <!-- ═══ SCREEN 2: FINANCE STATS ═══ -->
@@ -1114,7 +1119,7 @@ btn_add_income:'Add Income',btn_update_balance:'Update Balance',btn_add_account:
 card_my_accounts:'My Accounts',card_money_earned:'Money Earned Over Time',card_recent_tx:'Recent Transactions',btn_add_expense_action:'+ Add Expense',
 empty_no_accounts:'No accounts yet.',empty_add_account_hint:'Tap "Add Account" to get started.',
 empty_no_tx:'No transactions yet.',empty_add_tx_hint:'Tap "+ Add Expense" to log one.',
-btn_view_all_tx:'View All by Category →',modal_all_transactions:'All Transactions by Category',modal_add_category:'New Category',lbl_cat_emoji:'Emoji (optional)',lbl_cat_name:'Category Name',ph_cat_name:'e.g. Gaming',btn_create_category:'Create',toast_category_added:'Category added ✅',opt_add_new_category:'➕ Add New Category',
+btn_view_all_tx:'View All by Category →',card_spend_cats:'Spending Categories',cat_dropdown_hint:'Tap a category to see its expenses by month',modal_all_transactions:'All Transactions by Category',modal_add_category:'New Category',lbl_cat_emoji:'Emoji (optional)',lbl_cat_name:'Category Name',ph_cat_name:'e.g. Gaming',btn_create_category:'Create',toast_category_added:'Category added ✅',opt_add_new_category:'➕ Add New Category',
 tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
@@ -1167,7 +1172,7 @@ btn_add_income:'Agregar Ingreso',btn_update_balance:'Actualizar Saldo',btn_add_a
 card_my_accounts:'Mis Cuentas',card_money_earned:'Dinero Ganado con el Tiempo',card_recent_tx:'Transacciones Recientes',btn_add_expense_action:'+ Agregar Gasto',
 empty_no_accounts:'Aún no hay cuentas.',empty_add_account_hint:'Toca "Agregar Cuenta" para comenzar.',
 empty_no_tx:'Aún no hay transacciones.',empty_add_tx_hint:'Toca "+ Agregar Gasto" para registrar una.',
-btn_view_all_tx:'Ver Todas por Categoría →',modal_all_transactions:'Todas las Transacciones por Categoría',modal_add_category:'Nueva Categoría',lbl_cat_emoji:'Emoji (opcional)',lbl_cat_name:'Nombre de la Categoría',ph_cat_name:'ej. Videojuegos',btn_create_category:'Crear',toast_category_added:'Categoría agregada ✅',opt_add_new_category:'➕ Agregar Nueva Categoría',
+btn_view_all_tx:'Ver Todas por Categoría →',card_spend_cats:'Categorías de Gasto',cat_dropdown_hint:'Toca una categoría para ver sus gastos por mes',modal_all_transactions:'Todas las Transacciones por Categoría',modal_add_category:'Nueva Categoría',lbl_cat_emoji:'Emoji (opcional)',lbl_cat_name:'Nombre de la Categoría',ph_cat_name:'ej. Videojuegos',btn_create_category:'Crear',toast_category_added:'Categoría agregada ✅',opt_add_new_category:'➕ Agregar Nueva Categoría',
 tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
@@ -1220,7 +1225,7 @@ btn_add_income:'수입 추가',btn_update_balance:'잔액 수정',btn_add_accoun
 card_my_accounts:'내 계좌',card_money_earned:'기간별 수입',card_recent_tx:'최근 거래 내역',btn_add_expense_action:'+ 지출 추가',
 empty_no_accounts:'아직 계좌가 없습니다.',empty_add_account_hint:'"계좌 추가"를 눌러 시작하세요.',
 empty_no_tx:'아직 거래 내역이 없습니다.',empty_add_tx_hint:'"+ 지출 추가"를 눌러 기록하세요.',
-btn_view_all_tx:'카테고리별 전체 보기 →',modal_all_transactions:'카테고리별 전체 거래 내역',modal_add_category:'새 카테고리',lbl_cat_emoji:'이모지 (선택)',lbl_cat_name:'카테고리 이름',ph_cat_name:'예: 게임',btn_create_category:'만들기',toast_category_added:'카테고리가 추가되었습니다 ✅',opt_add_new_category:'➕ 새 카테고리 추가',
+btn_view_all_tx:'카테고리별 전체 보기 →',card_spend_cats:'지출 카테고리',cat_dropdown_hint:'카테고리를 눌러 월별 지출을 확인하세요',modal_all_transactions:'카테고리별 전체 거래 내역',modal_add_category:'새 카테고리',lbl_cat_emoji:'이모지 (선택)',lbl_cat_name:'카테고리 이름',ph_cat_name:'예: 게임',btn_create_category:'만들기',toast_category_added:'카테고리가 추가되었습니다 ✅',opt_add_new_category:'➕ 새 카테고리 추가',
 tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
@@ -1273,7 +1278,7 @@ btn_add_income:'収入を追加',btn_update_balance:'残高を更新',btn_add_ac
 card_my_accounts:'My口座',card_money_earned:'期間別収入',card_recent_tx:'最近の取引',btn_add_expense_action:'+ 支出を追加',
 empty_no_accounts:'まだ口座がありません。',empty_add_account_hint:'「口座を追加」をタップして始めましょう。',
 empty_no_tx:'まだ取引がありません。',empty_add_tx_hint:'「+ 支出を追加」で記録しましょう。',
-btn_view_all_tx:'カテゴリ別にすべて見る →',modal_all_transactions:'カテゴリ別のすべての取引',modal_add_category:'新しいカテゴリ',lbl_cat_emoji:'絵文字（任意）',lbl_cat_name:'カテゴリ名',ph_cat_name:'例：ゲーム',btn_create_category:'作成',toast_category_added:'カテゴリを追加しました ✅',opt_add_new_category:'➕ 新しいカテゴリを追加',
+btn_view_all_tx:'カテゴリ別にすべて見る →',card_spend_cats:'支出カテゴリ',cat_dropdown_hint:'カテゴリをタップして月別の支出を見る',modal_all_transactions:'カテゴリ別のすべての取引',modal_add_category:'新しいカテゴリ',lbl_cat_emoji:'絵文字（任意）',lbl_cat_name:'カテゴリ名',ph_cat_name:'例：ゲーム',btn_create_category:'作成',toast_category_added:'カテゴリを追加しました ✅',opt_add_new_category:'➕ 新しいカテゴリを追加',
 tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
@@ -1398,6 +1403,7 @@ async function saveNewCategory(){
     customCategories=res.customCategories||[...customCategories,full];
   }catch(e){ alert(e.message); return; }
   populateCategoryDropdowns();
+  renderCategoryDropdowns();
   if(pendingCategorySelectId){
     const sel=document.getElementById(pendingCategorySelectId);
     if(sel) sel.value=full;
@@ -1408,6 +1414,28 @@ async function saveNewCategory(){
 }
 
 // ── "View All by Category" (home screen) ───────────────────────────────────
+function txMonthGroupsHTML(items){
+      const monthGroups={};
+      items.forEach(tx=>{
+        const mk=(tx.date||'').slice(0,7)||'—';
+        (monthGroups[mk]=monthGroups[mk]||[]).push(tx);
+      });
+      const monthKeys=Object.keys(monthGroups).sort((a,b)=>b.localeCompare(a));
+      return monthKeys.map(mk=>{
+        const monthItems=monthGroups[mk];
+        const monthTotal=monthItems.reduce((s,tx)=>s+tx.amount,0);
+        const monthLabel=mk==='—'?'—':new Date(mk+'-01T00:00:00').toLocaleDateString(localeForLang(),{month:'long',year:'numeric'});
+        const rows=monthItems.map(tx=>txRowHTML(tx,{showCat:false})).join('');
+        return`<div style="margin:8px 0 4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;padding:4px 2px">
+            <span>${escHtml(monthLabel)}</span>
+            <span>$${fmtNum(monthTotal)}</span>
+          </div>
+          ${rows}
+        </div>`;
+      }).join('');
+}
+
 function openAllTransactionsModal(){
   const transactions=getData('transactions').slice().sort(compareTxRecency);
   const groups={};
@@ -1427,25 +1455,7 @@ function openAllTransactionsModal(){
     el.innerHTML=order.map(cat=>{
       const items=groups[cat];
       const catTotal=items.reduce((s,tx)=>s+tx.amount,0);
-      const monthGroups={};
-      items.forEach(tx=>{
-        const mk=(tx.date||'').slice(0,7)||'—';
-        (monthGroups[mk]=monthGroups[mk]||[]).push(tx);
-      });
-      const monthKeys=Object.keys(monthGroups).sort((a,b)=>b.localeCompare(a));
-      const monthsHTML=monthKeys.map(mk=>{
-        const monthItems=monthGroups[mk];
-        const monthTotal=monthItems.reduce((s,tx)=>s+tx.amount,0);
-        const monthLabel=mk==='—'?'—':new Date(mk+'-01T00:00:00').toLocaleDateString(localeForLang(),{month:'long',year:'numeric'});
-        const rows=monthItems.map(tx=>txRowHTML(tx,{showCat:false})).join('');
-        return`<div style="margin:8px 0 4px">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;padding:4px 2px">
-            <span>${escHtml(monthLabel)}</span>
-            <span>$${fmtNum(monthTotal)}</span>
-          </div>
-          ${rows}
-        </div>`;
-      }).join('');
+      const monthsHTML=txMonthGroupsHTML(items);
       return`<div style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:2px solid var(--border);margin-bottom:4px">
           <span style="font-weight:700;font-size:.85rem">${escHtml(catLabel(cat))}</span>
@@ -2119,6 +2129,55 @@ async function doTransfer(){
   renderFinancesScreen();
   showToast(`$${fmtNum(amount)}: ${fromAcct?fromAcct.name:''} → ${toAcct?toAcct.name:''}`);
 }
+// ── "Spending Categories" section on the home page: tap a category to expand its expenses, grouped by month ──
+const BUILTIN_EXPENSE_CATEGORIES=['🍔 Food','🚗 Transport','⛽ Gas','🏠 Housing','🛒 Shopping','💊 Health','🎬 Entertainment','📱 Utilities','📚 Education','✈️ Travel','⛪ Church','💼 Other'];
+let openCategoryDropdowns=new Set();
+function getSpendingCategoryList(){
+  const stats={};
+  getData('transactions').filter(tx=>tx.type==='expense').forEach(tx=>{
+    const k=tx.cat||'💼 Other';
+    (stats[k]=stats[k]||{total:0,count:0}).total+=tx.amount;
+    stats[k].count++;
+  });
+  const all=[...new Set([...BUILTIN_EXPENSE_CATEGORIES,...customCategories,...Object.keys(stats)])];
+  return all.map((cat,i)=>({cat,order:i,total:stats[cat]?stats[cat].total:0,count:stats[cat]?stats[cat].count:0}))
+    .sort((a,b)=>((b.count>0)-(a.count>0))||(b.total-a.total)||(a.order-b.order));
+}
+function renderCategoryDropdowns(){
+  const el=document.getElementById('category-dropdowns');
+  if(!el)return;
+  const expenses=getData('transactions').filter(tx=>tx.type==='expense').sort(compareTxRecency);
+  el.innerHTML=getSpendingCategoryList().map(({cat,total,count})=>{
+    const isOpen=openCategoryDropdowns.has(cat);
+    let body='';
+    if(isOpen){
+      const items=expenses.filter(tx=>(tx.cat||'💼 Other')===cat);
+      body=`<div style="padding:0 0 10px">${items.length?txMonthGroupsHTML(items):`<div style="font-size:.82rem;color:var(--text-muted);text-align:center;padding:10px 0">${escHtml(t('cat_detail_no_expenses'))}</div>`}</div>`;
+    }
+    return`<div style="border-bottom:1px solid var(--border)">
+      <div data-cat-toggle="${escHtml(cat)}" role="button" aria-expanded="${isOpen}" style="display:flex;align-items:center;gap:10px;padding:11px 2px;cursor:pointer;${count?'':'opacity:.55'}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(catLabel(cat))}</div>
+          <div style="font-size:.72rem;color:var(--text-secondary)">${count}${count===1?t('expense_singular'):t('expense_plural')}</div>
+        </div>
+        <div style="font-size:.88rem;font-weight:700">$${fmtNum(total)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted);width:12px;text-align:center">${isOpen?'▲':'▼'}</div>
+      </div>${body}</div>`;
+  }).join('');
+}
+(function(){
+  const el=document.getElementById('category-dropdowns');
+  if(!el)return;
+  // one delegated listener, so category names with quotes/apostrophes can't break anything
+  el.addEventListener('click',e=>{
+    const head=e.target.closest('[data-cat-toggle]');
+    if(!head)return;
+    const cat=head.getAttribute('data-cat-toggle');
+    if(openCategoryDropdowns.has(cat)) openCategoryDropdowns.delete(cat); else openCategoryDropdowns.add(cat);
+    renderCategoryDropdowns();
+  });
+})();
+
 function renderFinancesScreen(){
   const accounts=getData('accounts');
   const total=accounts.reduce((s,a)=>s+a.balance,0);
@@ -2126,6 +2185,7 @@ function renderFinancesScreen(){
   document.getElementById('hero-sub').textContent=t('hero_sub_template').replace('{n}',accounts.length);
   renderAccountsList();
   renderRecentTransactions();
+  renderCategoryDropdowns();
   renderIncomeChart();
   updateNotifBadge();
 }

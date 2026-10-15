@@ -310,7 +310,7 @@ app.post('/api/accounts/transfer', auth, async (req, res) => {
 //  TRANSACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/transactions', auth, async (req, res) => {
-  const txs = await Transaction.find({ userId: req.user.id }).sort({ date: -1, createdAt: -1 }).limit(200);
+  const txs = await Transaction.find({ userId: req.user.id }).sort({ date: -1, createdAt: -1 }).limit(5000);
   res.json(txs);
 });
 app.post('/api/transactions', auth, async (req, res) => {

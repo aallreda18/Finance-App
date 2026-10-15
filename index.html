@@ -315,13 +315,18 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         </div>
         <div id="recent-transactions"></div>
         <div style="text-align:center;margin-top:10px">
-          <span class="section-action" onclick="openAllTransactionsModal()" data-i18n="btn_view_all_tx">View All by Category →</span>
+          <span class="section-action" onclick="openAllTransactionsModal()" data-i18n="btn_view_all_tx">View All Transactions →</span>
         </div>
       </div>
       <div class="card">
         <div class="card-title" data-i18n="card_spend_cats">Spending Categories</div>
         <div style="font-size:.72rem;color:var(--text-muted);margin:-6px 0 6px" data-i18n="cat_dropdown_hint">Tap a category to see its expenses by month</div>
         <div id="category-dropdowns"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" data-i18n="card_spend_months">Spending by Month</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin:-6px 0 6px" data-i18n="month_dropdown_hint">Tap a month to see its expenses</div>
+        <div id="month-dropdowns"></div>
       </div>
     </div>
 
@@ -1011,8 +1016,13 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
 <div class="modal-overlay" id="all-transactions-modal">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title" data-i18n="modal_all_transactions">All Transactions by Category</div>
-    <div id="all-tx-list" style="max-height:65vh;overflow-y:auto"></div>
+    <div class="modal-title" data-i18n="modal_all_transactions">All Transactions</div>
+    <div class="tab-row" id="all-tx-filters" style="background:var(--surface-2);margin-bottom:10px">
+      <div class="tab active" data-filter="all" onclick="setAllTxFilter('all')" data-i18n="filter_all">All</div>
+      <div class="tab" data-filter="expense" onclick="setAllTxFilter('expense')" data-i18n="filter_expenses">Expenses</div>
+      <div class="tab" data-filter="income" onclick="setAllTxFilter('income')" data-i18n="filter_income">Income</div>
+    </div>
+    <div id="all-tx-list" style="max-height:58vh;overflow-y:auto"></div>
     <div class="modal-row" style="margin-top:14px">
       <button class="btn-cancel" onclick="closeModal('all-transactions-modal')" data-i18n="btn_close">Close</button>
     </div>
@@ -1119,7 +1129,7 @@ btn_add_income:'Add Income',btn_update_balance:'Update Balance',btn_add_account:
 card_my_accounts:'My Accounts',card_money_earned:'Money Earned Over Time',card_recent_tx:'Recent Transactions',btn_add_expense_action:'+ Add Expense',
 empty_no_accounts:'No accounts yet.',empty_add_account_hint:'Tap "Add Account" to get started.',
 empty_no_tx:'No transactions yet.',empty_add_tx_hint:'Tap "+ Add Expense" to log one.',
-btn_view_all_tx:'View All by Category →',card_spend_cats:'Spending Categories',cat_dropdown_hint:'Tap a category to see its expenses by month',modal_all_transactions:'All Transactions by Category',modal_add_category:'New Category',lbl_cat_emoji:'Emoji (optional)',lbl_cat_name:'Category Name',ph_cat_name:'e.g. Gaming',btn_create_category:'Create',toast_category_added:'Category added ✅',opt_add_new_category:'➕ Add New Category',
+btn_view_all_tx:'View All Transactions →',card_spend_cats:'Spending Categories',card_spend_months:'Spending by Month',month_dropdown_hint:'Tap a month to see its expenses',month_no_expenses:'No expenses in this month.',filter_all:'All',filter_expenses:'Expenses',filter_income:'Income',cat_dropdown_hint:'Tap a category to see its expenses by month',modal_all_transactions:'All Transactions',modal_add_category:'New Category',lbl_cat_emoji:'Emoji (optional)',lbl_cat_name:'Category Name',ph_cat_name:'e.g. Gaming',btn_create_category:'Create',toast_category_added:'Category added ✅',opt_add_new_category:'➕ Add New Category',
 tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
@@ -1172,7 +1182,7 @@ btn_add_income:'Agregar Ingreso',btn_update_balance:'Actualizar Saldo',btn_add_a
 card_my_accounts:'Mis Cuentas',card_money_earned:'Dinero Ganado con el Tiempo',card_recent_tx:'Transacciones Recientes',btn_add_expense_action:'+ Agregar Gasto',
 empty_no_accounts:'Aún no hay cuentas.',empty_add_account_hint:'Toca "Agregar Cuenta" para comenzar.',
 empty_no_tx:'Aún no hay transacciones.',empty_add_tx_hint:'Toca "+ Agregar Gasto" para registrar una.',
-btn_view_all_tx:'Ver Todas por Categoría →',card_spend_cats:'Categorías de Gasto',cat_dropdown_hint:'Toca una categoría para ver sus gastos por mes',modal_all_transactions:'Todas las Transacciones por Categoría',modal_add_category:'Nueva Categoría',lbl_cat_emoji:'Emoji (opcional)',lbl_cat_name:'Nombre de la Categoría',ph_cat_name:'ej. Videojuegos',btn_create_category:'Crear',toast_category_added:'Categoría agregada ✅',opt_add_new_category:'➕ Agregar Nueva Categoría',
+btn_view_all_tx:'Ver Todas las Transacciones →',card_spend_cats:'Categorías de Gasto',card_spend_months:'Gasto por Mes',month_dropdown_hint:'Toca un mes para ver sus gastos',month_no_expenses:'No hay gastos en este mes.',filter_all:'Todas',filter_expenses:'Gastos',filter_income:'Ingresos',cat_dropdown_hint:'Toca una categoría para ver sus gastos por mes',modal_all_transactions:'Todas las Transacciones',modal_add_category:'Nueva Categoría',lbl_cat_emoji:'Emoji (opcional)',lbl_cat_name:'Nombre de la Categoría',ph_cat_name:'ej. Videojuegos',btn_create_category:'Crear',toast_category_added:'Categoría agregada ✅',opt_add_new_category:'➕ Agregar Nueva Categoría',
 tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
@@ -1225,7 +1235,7 @@ btn_add_income:'수입 추가',btn_update_balance:'잔액 수정',btn_add_accoun
 card_my_accounts:'내 계좌',card_money_earned:'기간별 수입',card_recent_tx:'최근 거래 내역',btn_add_expense_action:'+ 지출 추가',
 empty_no_accounts:'아직 계좌가 없습니다.',empty_add_account_hint:'"계좌 추가"를 눌러 시작하세요.',
 empty_no_tx:'아직 거래 내역이 없습니다.',empty_add_tx_hint:'"+ 지출 추가"를 눌러 기록하세요.',
-btn_view_all_tx:'카테고리별 전체 보기 →',card_spend_cats:'지출 카테고리',cat_dropdown_hint:'카테고리를 눌러 월별 지출을 확인하세요',modal_all_transactions:'카테고리별 전체 거래 내역',modal_add_category:'새 카테고리',lbl_cat_emoji:'이모지 (선택)',lbl_cat_name:'카테고리 이름',ph_cat_name:'예: 게임',btn_create_category:'만들기',toast_category_added:'카테고리가 추가되었습니다 ✅',opt_add_new_category:'➕ 새 카테고리 추가',
+btn_view_all_tx:'전체 거래 내역 보기 →',card_spend_cats:'지출 카테고리',card_spend_months:'월별 지출',month_dropdown_hint:'월을 눌러 지출 내역을 확인하세요',month_no_expenses:'이 달에는 지출이 없습니다.',filter_all:'전체',filter_expenses:'지출',filter_income:'수입',cat_dropdown_hint:'카테고리를 눌러 월별 지출을 확인하세요',modal_all_transactions:'전체 거래 내역',modal_add_category:'새 카테고리',lbl_cat_emoji:'이모지 (선택)',lbl_cat_name:'카테고리 이름',ph_cat_name:'예: 게임',btn_create_category:'만들기',toast_category_added:'카테고리가 추가되었습니다 ✅',opt_add_new_category:'➕ 새 카테고리 추가',
 tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
@@ -1278,7 +1288,7 @@ btn_add_income:'収入を追加',btn_update_balance:'残高を更新',btn_add_ac
 card_my_accounts:'My口座',card_money_earned:'期間別収入',card_recent_tx:'最近の取引',btn_add_expense_action:'+ 支出を追加',
 empty_no_accounts:'まだ口座がありません。',empty_add_account_hint:'「口座を追加」をタップして始めましょう。',
 empty_no_tx:'まだ取引がありません。',empty_add_tx_hint:'「+ 支出を追加」で記録しましょう。',
-btn_view_all_tx:'カテゴリ別にすべて見る →',card_spend_cats:'支出カテゴリ',cat_dropdown_hint:'カテゴリをタップして月別の支出を見る',modal_all_transactions:'カテゴリ別のすべての取引',modal_add_category:'新しいカテゴリ',lbl_cat_emoji:'絵文字（任意）',lbl_cat_name:'カテゴリ名',ph_cat_name:'例：ゲーム',btn_create_category:'作成',toast_category_added:'カテゴリを追加しました ✅',opt_add_new_category:'➕ 新しいカテゴリを追加',
+btn_view_all_tx:'すべての取引を見る →',card_spend_cats:'支出カテゴリ',card_spend_months:'月別支出',month_dropdown_hint:'月をタップして支出を見る',month_no_expenses:'この月の支出はありません。',filter_all:'すべて',filter_expenses:'支出',filter_income:'収入',cat_dropdown_hint:'カテゴリをタップして月別の支出を見る',modal_all_transactions:'すべての取引',modal_add_category:'新しいカテゴリ',lbl_cat_emoji:'絵文字（任意）',lbl_cat_name:'カテゴリ名',ph_cat_name:'例：ゲーム',btn_create_category:'作成',toast_category_added:'カテゴリを追加しました ✅',opt_add_new_category:'➕ 新しいカテゴリを追加',
 tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
@@ -1413,7 +1423,7 @@ async function saveNewCategory(){
   showToast(t('toast_category_added'));
 }
 
-// ── "View All by Category" (home screen) ───────────────────────────────────
+// ── Home screen helpers: month-grouped rows (used by the category dropdowns) ──
 function txMonthGroupsHTML(items){
       const monthGroups={};
       items.forEach(tx=>{
@@ -1436,35 +1446,20 @@ function txMonthGroupsHTML(items){
       }).join('');
 }
 
+let allTxFilter='all';
+function setAllTxFilter(f){ allTxFilter=f; renderAllTransactionsList(); }
+// "All Transactions": every transaction in the order it was made, newest first (optionally filtered)
+function renderAllTransactionsList(){
+  document.querySelectorAll('#all-tx-filters .tab').forEach(tb=>tb.classList.toggle('active',tb.getAttribute('data-filter')===allTxFilter));
+  const all=getData('transactions').slice().sort(compareTxRecency);
+  const list=allTxFilter==='all'?all:all.filter(tx=>tx.type===allTxFilter);
+  document.getElementById('all-tx-list').innerHTML=list.length
+    ? list.map(tx=>txRowHTML(tx,{showCat:true})).join('')
+    : `<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}</p></div>`;
+}
 function openAllTransactionsModal(){
-  const transactions=getData('transactions').slice().sort(compareTxRecency);
-  const groups={};
-  transactions.forEach(tx=>{
-    const key=tx.cat||(tx.type==='income'?'💵 Income':tx.type==='transfer'?'🔄 Transfer':'💼 Other');
-    (groups[key]=groups[key]||[]).push(tx);
-  });
-  const order=Object.keys(groups).sort((a,b)=>{
-    const totalA=groups[a].reduce((s,tx)=>s+(tx.type==='expense'?tx.amount:0),0);
-    const totalB=groups[b].reduce((s,tx)=>s+(tx.type==='expense'?tx.amount:0),0);
-    return totalB-totalA;
-  });
-  const el=document.getElementById('all-tx-list');
-  if(!order.length){
-    el.innerHTML=`<div class="empty-state" style="padding:1rem 0"><p>${escHtml(t('empty_no_tx'))}</p></div>`;
-  } else {
-    el.innerHTML=order.map(cat=>{
-      const items=groups[cat];
-      const catTotal=items.reduce((s,tx)=>s+tx.amount,0);
-      const monthsHTML=txMonthGroupsHTML(items);
-      return`<div style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:2px solid var(--border);margin-bottom:4px">
-          <span style="font-weight:700;font-size:.85rem">${escHtml(catLabel(cat))}</span>
-          <span style="font-size:.78rem;font-weight:700;color:var(--text-secondary)">${items.length} · $${fmtNum(catTotal)}</span>
-        </div>
-        ${monthsHTML}
-      </div>`;
-    }).join('');
-  }
+  allTxFilter='all';
+  renderAllTransactionsList();
   document.getElementById('all-transactions-modal').classList.add('open');
 }
 const GOAL_TYPE_I18N={
@@ -2178,6 +2173,67 @@ function renderCategoryDropdowns(){
   });
 })();
 
+// ── "Spending by Month" section on the home page: every month, tap to expand that month's expenses ──
+let openMonthDropdowns=new Set();
+function monthLabelFor(key){
+  const [y,m]=key.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString(localeForLang(),{month:'long',year:'numeric'});
+}
+function getMonthList(){
+  const stats={};
+  getData('transactions').filter(tx=>tx.type==='expense'&&/^\d{4}-\d{2}/.test(tx.date||'')).forEach(tx=>{
+    const k=tx.date.slice(0,7);
+    (stats[k]=stats[k]||{total:0,count:0}).total+=tx.amount;
+    stats[k].count++;
+  });
+  const now=new Date();
+  const curKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const keys=[...new Set([...Object.keys(stats),curKey])].sort();
+  const [ey,em]=keys[0].split('-').map(Number), [ly,lm]=keys[keys.length-1].split('-').map(Number);
+  const span=(ly-ey)*12+(lm-em)+1;
+  let ordered;
+  if(span<=120){            // normal case: a continuous timeline, empty months included
+    ordered=[]; let y=ly,m=lm;
+    for(let i=0;i<span;i++){ ordered.push(y+'-'+String(m).padStart(2,'0')); m--; if(m===0){m=12;y--;} }
+  } else {                  // a stray very old date would create hundreds of empty rows, so only list months that have data
+    ordered=keys.slice().reverse();
+  }
+  return ordered.map(key=>({key,total:stats[key]?stats[key].total:0,count:stats[key]?stats[key].count:0}));
+}
+function renderMonthDropdowns(){
+  const el=document.getElementById('month-dropdowns');
+  if(!el)return;
+  const expenses=getData('transactions').filter(tx=>tx.type==='expense').sort(compareTxRecency);
+  el.innerHTML=getMonthList().map(({key,total,count})=>{
+    const isOpen=openMonthDropdowns.has(key);
+    let body='';
+    if(isOpen){
+      const items=expenses.filter(tx=>(tx.date||'').slice(0,7)===key);
+      body=`<div style="padding:0 0 10px">${items.length?items.map(tx=>txRowHTML(tx,{showCat:true})).join(''):`<div style="font-size:.82rem;color:var(--text-muted);text-align:center;padding:10px 0">${escHtml(t('month_no_expenses'))}</div>`}</div>`;
+    }
+    return`<div style="border-bottom:1px solid var(--border)">
+      <div data-month-toggle="${key}" role="button" aria-expanded="${isOpen}" style="display:flex;align-items:center;gap:10px;padding:11px 2px;cursor:pointer;${count?'':'opacity:.55'}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.9rem;font-weight:600">${escHtml(monthLabelFor(key))}</div>
+          <div style="font-size:.72rem;color:var(--text-secondary)">${count}${count===1?t('expense_singular'):t('expense_plural')}</div>
+        </div>
+        <div style="font-size:.88rem;font-weight:700">$${fmtNum(total)}</div>
+        <div style="font-size:.7rem;color:var(--text-muted);width:12px;text-align:center">${isOpen?'▲':'▼'}</div>
+      </div>${body}</div>`;
+  }).join('');
+}
+(function(){
+  const el=document.getElementById('month-dropdowns');
+  if(!el)return;
+  el.addEventListener('click',e=>{
+    const head=e.target.closest('[data-month-toggle]');
+    if(!head)return;
+    const key=head.getAttribute('data-month-toggle');
+    if(openMonthDropdowns.has(key)) openMonthDropdowns.delete(key); else openMonthDropdowns.add(key);
+    renderMonthDropdowns();
+  });
+})();
+
 function renderFinancesScreen(){
   const accounts=getData('accounts');
   const total=accounts.reduce((s,a)=>s+a.balance,0);
@@ -2186,6 +2242,7 @@ function renderFinancesScreen(){
   renderAccountsList();
   renderRecentTransactions();
   renderCategoryDropdowns();
+  renderMonthDropdowns();
   renderIncomeChart();
   updateNotifBadge();
 }
@@ -2216,7 +2273,7 @@ function txRowHTML(tx,opts){
 
 let lastOpenedCategory=null;
 function refreshOpenTxModals(){
-  if(document.getElementById('all-transactions-modal').classList.contains('open')) openAllTransactionsModal();
+  if(document.getElementById('all-transactions-modal').classList.contains('open')) renderAllTransactionsList();
   if(document.getElementById('category-detail-modal').classList.contains('open')&&lastOpenedCategory) openCategoryDetail(lastOpenedCategory);
 }
 async function deleteTransaction(id){

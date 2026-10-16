@@ -596,7 +596,7 @@ app.get('/api/partner/data', auth, async (req, res) => {
       return res.status(404).json({ error: 'Partner account not found' });
     const [accounts, transactions, bills, paydays, goals, budgets] = await Promise.all([
       Account.find({ userId: partner._id }),
-      Transaction.find({ userId: partner._id }).sort({ date: -1 }).limit(100),
+      Transaction.find({ userId: partner._id }).sort({ date: -1 }).limit(5000),
       Bill.find({ userId: partner._id }),
       Payday.find({ userId: partner._id }),
       Goal.find({ userId: partner._id }),

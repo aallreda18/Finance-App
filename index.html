@@ -527,6 +527,15 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <div id="mutual-monthly-summary-content"></div>
       </div>
       <div class="card">
+        <div class="card-title" data-i18n="card_mutual_overall_averages">Combined Average Income, Spending &amp; Net</div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin:-6px 0 10px;line-height:1.4" id="mutual-averages-note"></div>
+        <div id="mutual-overall-averages"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" data-i18n="card_mutual_category_averages">Combined Average Spending by Category</div>
+        <div id="mutual-category-averages"></div>
+      </div>
+      <div class="card">
         <div class="section-header" style="margin-bottom:8px">
           <div class="card-title" style="margin:0" data-i18n="card_personal_budgets_both">Personal Budgets (Both)</div>
         </div>
@@ -1141,7 +1150,7 @@ tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
 card_budget_tracker:'💰 Budget Tracker',btn_add_budget:'+ Add Budget',empty_no_budgets:'No budgets set yet. Tap "+ Add Budget" to set spending limits.',
-card_cat_breakdown:'Expenses by Category',card_category_averages:'Average Spending by Category',avg_note:'Based on the last 6 months (or since your first transaction, if newer)',card_overall_averages:'Average Income, Spending & Net',avg_year_note:'Yearly is projected from this period.',
+card_cat_breakdown:'Expenses by Category',card_category_averages:'Average Spending by Category',avg_note:'Based on the last 6 months (or since your first transaction, if newer)',card_overall_averages:'Average Income, Spending & Net',avg_year_note:'Yearly is projected from this period.',card_mutual_overall_averages:'Combined Average Income, Spending & Net',card_mutual_category_averages:'Combined Average Spending by Category',
 ai_title:'✨ AI Spending Analysis',ai_subtitle:'Powered by Claude · updates with your data',btn_analyze:'Analyze 🔍',btn_analyzing:'Analyzing…',btn_reanalyze:'Re-analyze 🔍',
 ai_run_prompt:'Get a full AI-written analysis of your spending patterns, habits, and personalized suggestions.',ai_cat_title:'This Month by Category',empty_no_expenses_month:'Add expenses to see your spending breakdown.',score_default_label:'Run the analysis to get your spending score.',
 btn_add_bill:'Add Bill',btn_add_payday:'Add Payday',card_bills_due:'Bills Due',empty_no_bills:'No bills added yet.',card_paydays:'Paydays',empty_no_paydays:'No paydays set yet.',
@@ -1194,7 +1203,7 @@ tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
 card_budget_tracker:'💰 Seguimiento de Presupuesto',btn_add_budget:'+ Agregar Presupuesto',empty_no_budgets:'Aún no hay presupuestos. Toca "+ Agregar Presupuesto" para fijar límites de gasto.',
-card_cat_breakdown:'Gastos por Categoría',card_category_averages:'Gasto Promedio por Categoría',avg_note:'Basado en los últimos 6 meses (o desde tu primera transacción, si es más reciente)',card_overall_averages:'Ingresos, Gastos y Neto Promedio',avg_year_note:'El anual es una proyección de este período.',
+card_cat_breakdown:'Gastos por Categoría',card_category_averages:'Gasto Promedio por Categoría',avg_note:'Basado en los últimos 6 meses (o desde tu primera transacción, si es más reciente)',card_overall_averages:'Ingresos, Gastos y Neto Promedio',avg_year_note:'El anual es una proyección de este período.',card_mutual_overall_averages:'Ingresos, Gastos y Neto Promedio (Combinado)',card_mutual_category_averages:'Gasto Promedio por Categoría (Combinado)',
 ai_title:'✨ Análisis de Gastos con IA',ai_subtitle:'Con tecnología de Claude · se actualiza con tus datos',btn_analyze:'Analizar 🔍',btn_analyzing:'Analizando…',btn_reanalyze:'Reanalizar 🔍',
 ai_run_prompt:'Obtén un análisis completo escrito por IA de tus patrones de gasto, hábitos y sugerencias personalizadas.',ai_cat_title:'Este Mes por Categoría',empty_no_expenses_month:'Agrega gastos para ver tu desglose de gastos.',score_default_label:'Ejecuta el análisis para obtener tu puntaje financiero.',
 btn_add_bill:'Agregar Factura',btn_add_payday:'Agregar Día de Pago',card_bills_due:'Facturas Pendientes',empty_no_bills:'Aún no hay facturas agregadas.',card_paydays:'Días de Pago',empty_no_paydays:'Aún no hay días de pago configurados.',
@@ -1247,7 +1256,7 @@ tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
 card_budget_tracker:'💰 예산 관리',btn_add_budget:'+ 예산 추가',empty_no_budgets:'아직 설정된 예산이 없습니다. "+ 예산 추가"를 눌러 지출 한도를 설정하세요.',
-card_cat_breakdown:'카테고리별 지출',card_category_averages:'카테고리별 평균 지출',avg_note:'최근 6개월 기준 (첫 거래가 더 최근이면 첫 거래 이후)',card_overall_averages:'평균 수입 · 지출 · 순액',avg_year_note:'연간 값은 이 기간을 바탕으로 한 추정치입니다.',
+card_cat_breakdown:'카테고리별 지출',card_category_averages:'카테고리별 평균 지출',avg_note:'최근 6개월 기준 (첫 거래가 더 최근이면 첫 거래 이후)',card_overall_averages:'평균 수입 · 지출 · 순액',avg_year_note:'연간 값은 이 기간을 바탕으로 한 추정치입니다.',card_mutual_overall_averages:'공동 평균 수입 · 지출 · 순액',card_mutual_category_averages:'공동 카테고리별 평균 지출',
 ai_title:'✨ AI 지출 분석',ai_subtitle:'Claude 기반 · 데이터에 따라 업데이트됨',btn_analyze:'분석하기 🔍',btn_analyzing:'분석 중…',btn_reanalyze:'다시 분석하기 🔍',
 ai_run_prompt:'지출 패턴, 습관, 맞춤 제안에 대한 전체 AI 분석을 받아보세요.',ai_cat_title:'이번 달 카테고리별 지출',empty_no_expenses_month:'지출을 추가하면 내역이 표시됩니다.',score_default_label:'분석을 실행하여 재정 점수를 확인하세요.',
 btn_add_bill:'청구서 추가',btn_add_payday:'급여일 추가',card_bills_due:'예정된 청구서',empty_no_bills:'아직 등록된 청구서가 없습니다.',card_paydays:'급여일',empty_no_paydays:'아직 설정된 급여일이 없습니다.',
@@ -1300,7 +1309,7 @@ tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
 card_budget_tracker:'💰 予算トラッカー',btn_add_budget:'+ 予算を追加',empty_no_budgets:'まだ予算が設定されていません。「+ 予算を追加」で支出上限を設定しましょう。',
-card_cat_breakdown:'カテゴリ別支出',card_category_averages:'カテゴリ別平均支出',avg_note:'過去6か月に基づく（最初の取引がそれより新しい場合はその日以降）',card_overall_averages:'平均の収入・支出・差引',avg_year_note:'年間はこの期間に基づく推定値です。',
+card_cat_breakdown:'カテゴリ別支出',card_category_averages:'カテゴリ別平均支出',avg_note:'過去6か月に基づく（最初の取引がそれより新しい場合はその日以降）',card_overall_averages:'平均の収入・支出・差引',avg_year_note:'年間はこの期間に基づく推定値です。',card_mutual_overall_averages:'共同の平均 収入・支出・差引',card_mutual_category_averages:'共同のカテゴリ別平均支出',
 ai_title:'✨ AI支出分析',ai_subtitle:'Claude搭載 · データに応じて更新',btn_analyze:'分析する 🔍',btn_analyzing:'分析中…',btn_reanalyze:'再分析する 🔍',
 ai_run_prompt:'あなたの支出パターン・習慣・改善提案について、AIによる詳細な分析を確認できます。',ai_cat_title:'今月のカテゴリ別支出',empty_no_expenses_month:'支出を追加すると内訳が表示されます。',score_default_label:'分析を実行して家計スコアを確認しましょう。',
 btn_add_bill:'請求書を追加',btn_add_payday:'給料日を追加',card_bills_due:'支払い予定の請求書',empty_no_bills:'まだ請求書が追加されていません。',card_paydays:'給料日',empty_no_paydays:'まだ給料日が設定されていません。',
@@ -2496,19 +2505,21 @@ function renderCategoryBreakdownChart(){
 // Averages are measured over the last 6 months, or since your first transaction if that is more recent
 // (so a newer account isn't diluted by months before it existed). Only days up to today count.
 function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function getAverageWindow(){
+function getAverageWindow(txs){
+  txs=txs||getData('transactions');
   const now=new Date();
   const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   let start=new Date(now.getFullYear(),now.getMonth()-5,1);
-  const dated=getData('transactions').filter(tx=>tx.type!=='transfer'&&/^\d{4}-\d{2}-\d{2}$/.test(tx.date||'')).map(tx=>tx.date).sort();
+  const dated=txs.filter(tx=>tx.type!=='transfer'&&/^\d{4}-\d{2}-\d{2}$/.test(tx.date||'')).map(tx=>tx.date).sort();
   if(dated.length){ const first=new Date(dated[0]+'T00:00:00'); if(first>start) start=first; }
   const days=Math.max(1,Math.round((today0-start)/86400000)+1);
   return{startISO:localISO(start),endISO:localISO(today0),days,weeks:Math.max(1,days/7),months:Math.max(1,days/30.4375)};
 }
-function getCategoryAverages(){
-  const w=getAverageWindow();
+function getCategoryAverages(txs){
+  txs=txs||getData('transactions');
+  const w=getAverageWindow(txs);
   const cats={};
-  getData('transactions').filter(tx=>tx.type==='expense').forEach(tx=>{
+  txs.filter(tx=>tx.type==='expense').forEach(tx=>{
     if(!tx.date||tx.date<w.startISO||tx.date>w.endISO)return;
     const key=tx.cat||'💼 Other';
     cats[key]=(cats[key]||0)+tx.amount;
@@ -2517,10 +2528,11 @@ function getCategoryAverages(){
 }
 
 // ── Average Income / Spent / Net per week, month and year ──
-function getOverallAverages(){
-  const w=getAverageWindow();
+function getOverallAverages(txs){
+  txs=txs||getData('transactions');
+  const w=getAverageWindow(txs);
   let income=0,expense=0;
-  getData('transactions').forEach(tx=>{
+  txs.forEach(tx=>{
     if(!tx.date||tx.date<w.startISO||tx.date>w.endISO)return;
     if(tx.type==='income') income+=tx.amount; else if(tx.type==='expense') expense+=tx.amount;
   });
@@ -2528,11 +2540,7 @@ function getOverallAverages(){
   const inc=per(income), exp=per(expense);
   return['week','month','year'].map(k=>({key:k,income:inc[k],spent:exp[k],net:inc[k]-exp[k]}));
 }
-function renderOverallAverages(){
-  const el=document.getElementById('overall-averages');
-  if(!el)return;
-  const noteEl=document.getElementById('overall-averages-note');
-  if(noteEl) noteEl.textContent=t('avg_note')+' · '+t('avg_year_note');
+function overallAveragesHTML(txs){
   const labels={week:t('tab_weekly'),month:t('tab_monthly'),year:t('tab_yearly')};
   const cell='text-align:right;font-size:.8rem;font-weight:600;font-variant-numeric:tabular-nums';
   const grid='display:grid;grid-template-columns:64px repeat(3,minmax(0,1fr));gap:4px 6px;align-items:center';
@@ -2540,7 +2548,7 @@ function renderOverallAverages(){
   const head=`<div style="${grid};font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;padding:0 0 6px;border-bottom:1px solid var(--border);margin-bottom:4px">
       <span></span><span style="text-align:right">${escHtml(t('stat_income'))}</span><span style="text-align:right">${escHtml(t('stat_spent'))}</span><span style="text-align:right">${escHtml(t('stat_net'))}</span>
     </div>`;
-  el.innerHTML=head+getOverallAverages().map(r=>`
+  return head+getOverallAverages(txs).map(r=>`
     <div style="${grid};padding:8px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:.82rem;font-weight:600;color:var(--text-secondary)">${escHtml(labels[r.key])}</span>
       <span class="text-green" style="${cell}">${money(r.income)}</span>
@@ -2548,22 +2556,45 @@ function renderOverallAverages(){
       <span class="${r.net>=0||Math.abs(r.net)<0.005?'text-green':'text-red'}" style="${cell}">${money(r.net)}</span>
     </div>`).join('');
 }
-function renderCategoryAverages(){
-  const el=document.getElementById('category-averages-list');
+function renderOverallAverages(){
+  const el=document.getElementById('overall-averages');
   if(!el)return;
-  const data=getCategoryAverages();
-  if(!data.length){ el.innerHTML=`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_expenses_month'))}</div>`; return; }
+  const noteEl=document.getElementById('overall-averages-note');
+  if(noteEl) noteEl.textContent=t('avg_note')+' · '+t('avg_year_note');
+  el.innerHTML=overallAveragesHTML();
+}
+function categoryAveragesHTML(txs,clickable){
+  const data=getCategoryAverages(txs);
+  if(!data.length) return`<div style="font-size:.84rem;color:var(--text-muted);text-align:center;padding:12px 0">${escHtml(t('empty_no_expenses_month'))}</div>`;
   const header=`<div style="display:flex;font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;padding:0 2px 6px;border-bottom:1px solid var(--border);margin-bottom:4px">
       <span style="flex:1">${escHtml(t('lbl_category'))}</span>
       <span style="width:76px;text-align:right">${escHtml(t('tab_weekly'))}</span>
       <span style="width:76px;text-align:right">${escHtml(t('tab_monthly'))}</span>
     </div>`;
-  el.innerHTML=header+data.map(d=>`
-    <div style="display:flex;align-items:center;padding:7px 2px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openCategoryDetail('${escHtml(d.cat)}')">
+  return header+data.map(d=>`
+    <div style="display:flex;align-items:center;padding:7px 2px;border-bottom:1px solid var(--border);${clickable?'cursor:pointer':''}"${clickable?` onclick="openCategoryDetail('${escHtml(d.cat)}')"`:''}>
       <span style="flex:1;font-size:.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(catLabel(d.cat))}</span>
       <span style="width:76px;text-align:right;font-size:.82rem;font-weight:600">$${fmtNum(d.weeklyAvg)}</span>
       <span style="width:76px;text-align:right;font-size:.82rem;font-weight:600">$${fmtNum(d.monthlyAvg)}</span>
     </div>`).join('');
+}
+function renderCategoryAverages(){
+  const el=document.getElementById('category-averages-list');
+  if(!el)return;
+  el.innerHTML=categoryAveragesHTML(undefined,true);
+}
+
+// ── Mutual page: the same averages, with both of your transactions combined ──
+function getCombinedTransactions(){ return [...getData('transactions'),...getDataFor(mutualPartner,'transactions')]; }
+function renderMutualAverages(){
+  const overallEl=document.getElementById('mutual-overall-averages');
+  const catEl=document.getElementById('mutual-category-averages');
+  if(!overallEl||!catEl||!mutualPartner)return;
+  const txs=getCombinedTransactions();
+  const noteEl=document.getElementById('mutual-averages-note');
+  if(noteEl) noteEl.textContent=t('avg_note')+' · '+t('avg_year_note');
+  overallEl.innerHTML=overallAveragesHTML(txs);
+  catEl.innerHTML=categoryAveragesHTML(txs,false);   // not clickable: the category detail view only shows your own expenses
 }
 
 // ════════════════════════════════════════════════════
@@ -3366,6 +3397,7 @@ function renderMutualScreen(){
   document.getElementById('mutual-user2-bal').textContent='$'+fmtNum(partnerTotal);
   renderMutualChart();
   renderMutualSummary();
+  renderMutualAverages();
   renderMutualBudgetCards();
   renderMutualGoalsList();
   renderMutualTransactions(myName,partnerName);

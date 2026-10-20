@@ -35,6 +35,7 @@ const transactionSchema = new mongoose.Schema({
   desc:      { type: String, default: '' },
   category:  { type: String, default: '' },
   date:      { type: String, required: true },  // YYYY-MM-DD
+  billId:    { type: String, default: null },   // set when this expense was a bill payment logged from the Reminders page
 }, { timestamps: true });
 
 // ── Bill ──────────────────────────────────────────────────────────────────

@@ -378,6 +378,14 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         </div>
         <div id="monthly-summary-content"></div>
       </div>
+      <div class="card">
+        <div class="stat-nav">
+          <div class="stat-nav-btn" onclick="navYear(1)" title="Previous year">◀</div>
+          <div class="stat-nav-label" id="yearly-summary-label">Yearly Summary</div>
+          <div class="stat-nav-btn" onclick="navYear(-1)" title="Next year">▶</div>
+        </div>
+        <div id="yearly-summary-content"></div>
+      </div>
 
       <!-- CATEGORY BREAKDOWN (donut chart + %, follows the Monthly Summary's selected month) -->
       <div class="card">
@@ -505,6 +513,14 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <div class="card-title" data-i18n="card_acct_usage">Account Usage by Goals</div>
         <div id="acct-usage-list"></div>
       </div>
+      <div class="card" id="goal-coach-card" style="display:none">
+        <div class="card-title" data-i18n="card_goal_coach">✨ AI Goal Coach</div>
+        <div style="font-size:.78rem;color:var(--text-secondary);margin:-6px 0 10px;line-height:1.4" data-i18n="coach_subtitle">Get a plan to reach a goal by its target date</div>
+        <label for="coach-goal-select" style="font-size:.8rem;color:var(--text-secondary);font-weight:500;display:block;margin-bottom:5px" data-i18n="lbl_select_goal">Select Goal</label>
+        <select id="coach-goal-select" onchange="clearGoalCoachResult()" style="width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-size:.95rem;margin-bottom:10px;outline:none"></select>
+        <button class="btn-primary" id="coach-btn" onclick="runGoalCoach()" data-i18n="btn_coach_get">Get Recommendations</button>
+        <div id="coach-result" style="margin-top:12px"></div>
+      </div>
       <div id="goals-list"></div>
     </div>
 
@@ -539,12 +555,16 @@ html,body{height:100%;overflow:hidden;background:var(--navy);font-family:-apple-
         <div class="chart-wrap" style="height:200px"><canvas id="mutual-chart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title" id="mutual-summary-label">Combined Weekly Summary</div>
+        <div class="card-title" data-i18n="card_combined_weekly">Combined Weekly Summary</div>
         <div id="mutual-summary-content"></div>
       </div>
       <div class="card">
         <div class="card-title" data-i18n="card_combined_monthly">Combined Monthly Summary</div>
         <div id="mutual-monthly-summary-content"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" data-i18n="card_combined_yearly">Combined Yearly Summary</div>
+        <div id="mutual-yearly-summary-content"></div>
       </div>
       <div class="card">
         <div class="card-title" data-i18n="card_mutual_overall_averages">Combined Average Income, Spending &amp; Net</div>
@@ -1174,7 +1194,7 @@ tab_weekly:'Weekly',tab_monthly:'Monthly',tab_yearly:'Yearly',
 card_spending_timeline:'Spending Timeline',card_balance_by_account:'Balance by Account',
 lbl_weekly_summary:'Weekly Summary',lbl_monthly_summary:'Monthly Summary',stat_income:'Income',stat_spent:'Spent',stat_net:'Net',
 card_budget_tracker:'💰 Budget Tracker',btn_add_budget:'+ Add Budget',empty_no_budgets:'No budgets set yet. Tap "+ Add Budget" to set spending limits.',
-card_cat_breakdown:'Expenses by Category',card_category_averages:'Average Spending by Category',avg_note:'Based on the last 6 months (or since your first transaction, if newer)',card_overall_averages:'Average Income, Spending & Net',avg_year_note:'Yearly is projected from this period.',card_mutual_overall_averages:'Combined Average Income, Spending & Net',card_alltime_totals:'All-Time Totals',card_mutual_alltime_totals:'Combined All-Time Totals',totals_since:'Since {date}',card_income_list:'Income Received',card_bills_paid:'Bills Paid',empty_no_income:'No income recorded yet.',empty_no_bills_paid:'No bills paid yet.',income_count_singular:' entry',income_count_plural:' entries',payment_singular:' payment',payment_plural:' payments',card_mutual_category_averages:'Combined Average Spending by Category',
+card_cat_breakdown:'Expenses by Category',card_category_averages:'Average Spending by Category',avg_note:'Based on the last 6 months (or since your first transaction, if newer)',card_overall_averages:'Average Income, Spending & Net',avg_year_note:'Yearly is projected from this period.',card_mutual_overall_averages:'Combined Average Income, Spending & Net',card_alltime_totals:'All-Time Totals',card_mutual_alltime_totals:'Combined All-Time Totals',totals_since:'Since {date}',lbl_yearly_summary:'Yearly Summary',card_combined_weekly:'Combined Weekly Summary',card_combined_yearly:'Combined Yearly Summary',lbl_balance:'Balance',lbl_reserved:'Reserved',lbl_available:'Available',warn_over_reserved:'Reserved exceeds the balance by {amt}',lbl_of_account:'{pct}% of account',card_goal_coach:'✨ AI Goal Coach',coach_subtitle:'Get a plan to reach a goal by its target date',btn_coach_get:'Get Recommendations',btn_coach_loading:'Thinking…',coach_no_date:'no target date',coach_need_date:'This goal has no target date yet. Tap Edit on the goal and add one, then come back for a plan.',plan_target_date:'Target date',plan_days_left:'{n} days left',plan_remaining:'Still to save',plan_need_week:'Needed per week',plan_need_month:'Needed per month',plan_net_month:'Your average net per month',plan_status_reached:'🎉 Goal reached!',plan_status_ontrack:'✅ On track: your average net covers it',plan_status_short:'⚠️ Short by {amt} per month',plan_status_passed:'⏰ Target date passed: {amt} still to save',plan_other_goals:'Your other dated goals also need about {amt}/month',coach_recs_title:'Recommendations',coach_local_note:'AI is not available right now, so these tips are calculated from your numbers.',lr_ontrack:'Your average net ({net}/month) already covers the {need}/month needed. Move that amount to savings right after each payday so it is set aside first.',lr_projected:'At your current pace you would reach this goal around {date}.',lr_cut_intro:'To close the {gap}/month gap, trim your biggest flexible categories:',lr_cut_item:'{cat}: about {avg}/month. Trimming {pct}% frees roughly {save}/month.',lr_more:'If cutting is not enough, extend the target date or add about {gap}/month of extra income.',lr_no_surplus:'You are not saving a monthly surplus right now (net {net}/month), so the target date needs spending cuts, extra income, or a later date.',card_income_list:'Income Received',card_bills_paid:'Bills Paid',empty_no_income:'No income recorded yet.',empty_no_bills_paid:'No bills paid yet.',income_count_singular:' entry',income_count_plural:' entries',payment_singular:' payment',payment_plural:' payments',card_mutual_category_averages:'Combined Average Spending by Category',
 ai_title:'✨ AI Spending Analysis',ai_subtitle:'Powered by Claude · updates with your data',btn_analyze:'Analyze 🔍',btn_analyzing:'Analyzing…',btn_reanalyze:'Re-analyze 🔍',
 ai_run_prompt:'Get a full AI-written analysis of your spending patterns, habits, and personalized suggestions.',ai_cat_title:'This Month by Category',empty_no_expenses_month:'Add expenses to see your spending breakdown.',score_default_label:'Run the analysis to get your spending score.',
 btn_add_bill:'Add Bill',btn_add_payday:'Add Payday',card_bills_due:'Bills Due',empty_no_bills:'No bills added yet.',card_paydays:'Paydays',empty_no_paydays:'No paydays set yet.',
@@ -1227,7 +1247,7 @@ tab_weekly:'Semanal',tab_monthly:'Mensual',tab_yearly:'Anual',
 card_spending_timeline:'Línea de Tiempo de Gastos',card_balance_by_account:'Saldo por Cuenta',
 lbl_weekly_summary:'Resumen Semanal',lbl_monthly_summary:'Resumen Mensual',stat_income:'Ingresos',stat_spent:'Gastado',stat_net:'Neto',
 card_budget_tracker:'💰 Seguimiento de Presupuesto',btn_add_budget:'+ Agregar Presupuesto',empty_no_budgets:'Aún no hay presupuestos. Toca "+ Agregar Presupuesto" para fijar límites de gasto.',
-card_cat_breakdown:'Gastos por Categoría',card_category_averages:'Gasto Promedio por Categoría',avg_note:'Basado en los últimos 6 meses (o desde tu primera transacción, si es más reciente)',card_overall_averages:'Ingresos, Gastos y Neto Promedio',avg_year_note:'El anual es una proyección de este período.',card_mutual_overall_averages:'Ingresos, Gastos y Neto Promedio (Combinado)',card_alltime_totals:'Totales Históricos',card_mutual_alltime_totals:'Totales Históricos (Combinado)',totals_since:'Desde {date}',card_income_list:'Ingresos Recibidos',card_bills_paid:'Facturas Pagadas',empty_no_income:'Aún no hay ingresos registrados.',empty_no_bills_paid:'Aún no se ha pagado ninguna factura.',income_count_singular:' ingreso',income_count_plural:' ingresos',payment_singular:' pago',payment_plural:' pagos',card_mutual_category_averages:'Gasto Promedio por Categoría (Combinado)',
+card_cat_breakdown:'Gastos por Categoría',card_category_averages:'Gasto Promedio por Categoría',avg_note:'Basado en los últimos 6 meses (o desde tu primera transacción, si es más reciente)',card_overall_averages:'Ingresos, Gastos y Neto Promedio',avg_year_note:'El anual es una proyección de este período.',card_mutual_overall_averages:'Ingresos, Gastos y Neto Promedio (Combinado)',card_alltime_totals:'Totales Históricos',card_mutual_alltime_totals:'Totales Históricos (Combinado)',totals_since:'Desde {date}',lbl_yearly_summary:'Resumen Anual',card_combined_weekly:'Resumen Semanal Combinado',card_combined_yearly:'Resumen Anual Combinado',lbl_balance:'Saldo',lbl_reserved:'Reservado',lbl_available:'Disponible',warn_over_reserved:'Lo reservado supera el saldo por {amt}',lbl_of_account:'{pct}% de la cuenta',card_goal_coach:'✨ Asesor de Metas con IA',coach_subtitle:'Obtén un plan para alcanzar una meta antes de su fecha objetivo',btn_coach_get:'Obtener Recomendaciones',btn_coach_loading:'Pensando…',coach_no_date:'sin fecha objetivo',coach_need_date:'Esta meta aún no tiene fecha objetivo. Toca Editar en la meta, agrega una y vuelve por un plan.',plan_target_date:'Fecha objetivo',plan_days_left:'Faltan {n} días',plan_remaining:'Falta por ahorrar',plan_need_week:'Necesario por semana',plan_need_month:'Necesario por mes',plan_net_month:'Tu neto promedio por mes',plan_status_reached:'🎉 ¡Meta alcanzada!',plan_status_ontrack:'✅ Vas bien: tu neto promedio lo cubre',plan_status_short:'⚠️ Te faltan {amt} por mes',plan_status_passed:'⏰ La fecha objetivo ya pasó: faltan {amt} por ahorrar',plan_other_goals:'Tus otras metas con fecha también necesitan unos {amt}/mes',coach_recs_title:'Recomendaciones',coach_local_note:'La IA no está disponible ahora, así que estos consejos se calculan con tus números.',lr_ontrack:'Tu neto promedio ({net}/mes) ya cubre los {need}/mes necesarios. Aparta esa cantidad en ahorros justo después de cada pago para que quede reservada primero.',lr_projected:'Con tu ritmo actual alcanzarías esta meta alrededor del {date}.',lr_cut_intro:'Para cerrar la brecha de {gap}/mes, reduce tus categorías flexibles más grandes:',lr_cut_item:'{cat}: unos {avg}/mes. Reducir {pct}% libera aproximadamente {save}/mes.',lr_more:'Si recortar no basta, extiende la fecha objetivo o suma unos {gap}/mes de ingresos extra.',lr_no_surplus:'Ahora mismo no estás ahorrando un excedente mensual (neto {net}/mes), así que la fecha requiere recortes, ingresos extra o una fecha posterior.',card_income_list:'Ingresos Recibidos',card_bills_paid:'Facturas Pagadas',empty_no_income:'Aún no hay ingresos registrados.',empty_no_bills_paid:'Aún no se ha pagado ninguna factura.',income_count_singular:' ingreso',income_count_plural:' ingresos',payment_singular:' pago',payment_plural:' pagos',card_mutual_category_averages:'Gasto Promedio por Categoría (Combinado)',
 ai_title:'✨ Análisis de Gastos con IA',ai_subtitle:'Con tecnología de Claude · se actualiza con tus datos',btn_analyze:'Analizar 🔍',btn_analyzing:'Analizando…',btn_reanalyze:'Reanalizar 🔍',
 ai_run_prompt:'Obtén un análisis completo escrito por IA de tus patrones de gasto, hábitos y sugerencias personalizadas.',ai_cat_title:'Este Mes por Categoría',empty_no_expenses_month:'Agrega gastos para ver tu desglose de gastos.',score_default_label:'Ejecuta el análisis para obtener tu puntaje financiero.',
 btn_add_bill:'Agregar Factura',btn_add_payday:'Agregar Día de Pago',card_bills_due:'Facturas Pendientes',empty_no_bills:'Aún no hay facturas agregadas.',card_paydays:'Días de Pago',empty_no_paydays:'Aún no hay días de pago configurados.',
@@ -1280,7 +1300,7 @@ tab_weekly:'주간',tab_monthly:'월간',tab_yearly:'연간',
 card_spending_timeline:'지출 타임라인',card_balance_by_account:'계좌별 잔액',
 lbl_weekly_summary:'주간 요약',lbl_monthly_summary:'월간 요약',stat_income:'수입',stat_spent:'지출',stat_net:'순액',
 card_budget_tracker:'💰 예산 관리',btn_add_budget:'+ 예산 추가',empty_no_budgets:'아직 설정된 예산이 없습니다. "+ 예산 추가"를 눌러 지출 한도를 설정하세요.',
-card_cat_breakdown:'카테고리별 지출',card_category_averages:'카테고리별 평균 지출',avg_note:'최근 6개월 기준 (첫 거래가 더 최근이면 첫 거래 이후)',card_overall_averages:'평균 수입 · 지출 · 순액',avg_year_note:'연간 값은 이 기간을 바탕으로 한 추정치입니다.',card_mutual_overall_averages:'공동 평균 수입 · 지출 · 순액',card_alltime_totals:'전체 기간 합계',card_mutual_alltime_totals:'공동 전체 기간 합계',totals_since:'{date}부터',card_income_list:'받은 수입',card_bills_paid:'납부한 청구서',empty_no_income:'아직 기록된 수입이 없습니다.',empty_no_bills_paid:'아직 납부한 청구서가 없습니다.',income_count_singular:'건',income_count_plural:'건',payment_singular:'건',payment_plural:'건',card_mutual_category_averages:'공동 카테고리별 평균 지출',
+card_cat_breakdown:'카테고리별 지출',card_category_averages:'카테고리별 평균 지출',avg_note:'최근 6개월 기준 (첫 거래가 더 최근이면 첫 거래 이후)',card_overall_averages:'평균 수입 · 지출 · 순액',avg_year_note:'연간 값은 이 기간을 바탕으로 한 추정치입니다.',card_mutual_overall_averages:'공동 평균 수입 · 지출 · 순액',card_alltime_totals:'전체 기간 합계',card_mutual_alltime_totals:'공동 전체 기간 합계',totals_since:'{date}부터',lbl_yearly_summary:'연간 요약',card_combined_weekly:'공동 주간 요약',card_combined_yearly:'공동 연간 요약',lbl_balance:'잔액',lbl_reserved:'예약됨',lbl_available:'사용 가능',warn_over_reserved:'예약 금액이 잔액을 {amt} 초과합니다',lbl_of_account:'계좌의 {pct}%',card_goal_coach:'✨ AI 목표 코치',coach_subtitle:'목표 날짜까지 목표를 달성하기 위한 계획을 받아보세요',btn_coach_get:'추천 받기',btn_coach_loading:'생각 중…',coach_no_date:'목표 날짜 없음',coach_need_date:'이 목표에는 아직 목표 날짜가 없습니다. 목표의 수정을 눌러 날짜를 추가한 뒤 다시 와서 계획을 받아보세요.',plan_target_date:'목표 날짜',plan_days_left:'{n}일 남음',plan_remaining:'남은 저축액',plan_need_week:'주당 필요 금액',plan_need_month:'월당 필요 금액',plan_net_month:'월 평균 순액',plan_status_reached:'🎉 목표 달성!',plan_status_ontrack:'✅ 순조로움: 월 평균 순액으로 충분합니다',plan_status_short:'⚠️ 월 {amt} 부족',plan_status_passed:'⏰ 목표 날짜가 지났습니다: {amt} 더 저축해야 합니다',plan_other_goals:'날짜가 있는 다른 목표도 월 약 {amt}이 필요합니다',coach_recs_title:'추천',coach_local_note:'현재 AI를 사용할 수 없어 회원님의 수치로 계산한 조언입니다.',lr_ontrack:'월 평균 순액({net}/월)이 필요한 {need}/월을 이미 충족합니다. 급여를 받은 직후 그 금액을 먼저 저축해 따로 확보하세요.',lr_projected:'현재 속도라면 {date}경에 이 목표를 달성할 수 있습니다.',lr_cut_intro:'월 {gap}의 부족분을 메우려면 가장 큰 변동 지출 카테고리를 줄여 보세요:',lr_cut_item:'{cat}: 월 약 {avg}. {pct}%를 줄이면 월 약 {save}을 절약할 수 있습니다.',lr_more:'줄이는 것만으로 부족하면 목표 날짜를 늦추거나 월 약 {gap}의 추가 수입을 만들어 보세요.',lr_no_surplus:'현재는 매달 남는 금액이 없어서(순액 {net}/월) 목표 날짜를 맞추려면 지출 절감, 추가 수입 또는 더 늦은 날짜가 필요합니다.',card_income_list:'받은 수입',card_bills_paid:'납부한 청구서',empty_no_income:'아직 기록된 수입이 없습니다.',empty_no_bills_paid:'아직 납부한 청구서가 없습니다.',income_count_singular:'건',income_count_plural:'건',payment_singular:'건',payment_plural:'건',card_mutual_category_averages:'공동 카테고리별 평균 지출',
 ai_title:'✨ AI 지출 분석',ai_subtitle:'Claude 기반 · 데이터에 따라 업데이트됨',btn_analyze:'분석하기 🔍',btn_analyzing:'분석 중…',btn_reanalyze:'다시 분석하기 🔍',
 ai_run_prompt:'지출 패턴, 습관, 맞춤 제안에 대한 전체 AI 분석을 받아보세요.',ai_cat_title:'이번 달 카테고리별 지출',empty_no_expenses_month:'지출을 추가하면 내역이 표시됩니다.',score_default_label:'분석을 실행하여 재정 점수를 확인하세요.',
 btn_add_bill:'청구서 추가',btn_add_payday:'급여일 추가',card_bills_due:'예정된 청구서',empty_no_bills:'아직 등록된 청구서가 없습니다.',card_paydays:'급여일',empty_no_paydays:'아직 설정된 급여일이 없습니다.',
@@ -1333,7 +1353,7 @@ tab_weekly:'週間',tab_monthly:'月間',tab_yearly:'年間',
 card_spending_timeline:'支出タイムライン',card_balance_by_account:'口座別残高',
 lbl_weekly_summary:'週間サマリー',lbl_monthly_summary:'月間サマリー',stat_income:'収入',stat_spent:'支出',stat_net:'差引',
 card_budget_tracker:'💰 予算トラッカー',btn_add_budget:'+ 予算を追加',empty_no_budgets:'まだ予算が設定されていません。「+ 予算を追加」で支出上限を設定しましょう。',
-card_cat_breakdown:'カテゴリ別支出',card_category_averages:'カテゴリ別平均支出',avg_note:'過去6か月に基づく（最初の取引がそれより新しい場合はその日以降）',card_overall_averages:'平均の収入・支出・差引',avg_year_note:'年間はこの期間に基づく推定値です。',card_mutual_overall_averages:'共同の平均 収入・支出・差引',card_alltime_totals:'全期間の合計',card_mutual_alltime_totals:'共同の全期間合計',totals_since:'{date}以降',card_income_list:'受け取った収入',card_bills_paid:'支払い済みの請求書',empty_no_income:'まだ収入が記録されていません。',empty_no_bills_paid:'まだ支払い済みの請求書はありません。',income_count_singular:'件',income_count_plural:'件',payment_singular:'件',payment_plural:'件',card_mutual_category_averages:'共同のカテゴリ別平均支出',
+card_cat_breakdown:'カテゴリ別支出',card_category_averages:'カテゴリ別平均支出',avg_note:'過去6か月に基づく（最初の取引がそれより新しい場合はその日以降）',card_overall_averages:'平均の収入・支出・差引',avg_year_note:'年間はこの期間に基づく推定値です。',card_mutual_overall_averages:'共同の平均 収入・支出・差引',card_alltime_totals:'全期間の合計',card_mutual_alltime_totals:'共同の全期間合計',totals_since:'{date}以降',lbl_yearly_summary:'年間サマリー',card_combined_weekly:'共同週間サマリー',card_combined_yearly:'共同年間サマリー',lbl_balance:'残高',lbl_reserved:'確保済み',lbl_available:'利用可能',warn_over_reserved:'確保額が残高を{amt}超えています',lbl_of_account:'口座の{pct}%',card_goal_coach:'✨ AI目標コーチ',coach_subtitle:'目標日までに目標を達成するためのプランを作成します',btn_coach_get:'アドバイスを見る',btn_coach_loading:'考え中…',coach_no_date:'目標日なし',coach_need_date:'この目標にはまだ目標日がありません。目標の「編集」で日付を追加してから、もう一度お試しください。',plan_target_date:'目標日',plan_days_left:'残り{n}日',plan_remaining:'あと貯める金額',plan_need_week:'週あたりの必要額',plan_need_month:'月あたりの必要額',plan_net_month:'月平均の差引',plan_status_reached:'🎉 目標達成！',plan_status_ontrack:'✅ 順調：月平均の差引でまかなえます',plan_status_short:'⚠️ 月あたり{amt}不足',plan_status_passed:'⏰ 目標日を過ぎました：あと{amt}貯める必要があります',plan_other_goals:'日付のある他の目標にも月に約{amt}が必要です',coach_recs_title:'アドバイス',coach_local_note:'現在AIを利用できないため、あなたの数値から計算したアドバイスです。',lr_ontrack:'月平均の差引（{net}/月）は必要な{need}/月をすでに満たしています。給料日の直後にその金額を先に貯蓄へ回しましょう。',lr_projected:'今のペースなら{date}ごろにこの目標を達成できます。',lr_cut_intro:'月{gap}の不足を埋めるため、大きな変動費のカテゴリを見直しましょう：',lr_cut_item:'{cat}：月約{avg}。{pct}%減らすと月約{save}を捻出できます。',lr_more:'節約だけで足りない場合は、目標日を延ばすか、月約{gap}の追加収入を検討しましょう。',lr_no_surplus:'現在は毎月の余剰が出ていないため（差引{net}/月）、目標日に間に合わせるには支出削減・追加収入・日付の延長が必要です。',card_income_list:'受け取った収入',card_bills_paid:'支払い済みの請求書',empty_no_income:'まだ収入が記録されていません。',empty_no_bills_paid:'まだ支払い済みの請求書はありません。',income_count_singular:'件',income_count_plural:'件',payment_singular:'件',payment_plural:'件',card_mutual_category_averages:'共同のカテゴリ別平均支出',
 ai_title:'✨ AI支出分析',ai_subtitle:'Claude搭載 · データに応じて更新',btn_analyze:'分析する 🔍',btn_analyzing:'分析中…',btn_reanalyze:'再分析する 🔍',
 ai_run_prompt:'あなたの支出パターン・習慣・改善提案について、AIによる詳細な分析を確認できます。',ai_cat_title:'今月のカテゴリ別支出',empty_no_expenses_month:'支出を追加すると内訳が表示されます。',score_default_label:'分析を実行して家計スコアを確認しましょう。',
 btn_add_bill:'請求書を追加',btn_add_payday:'給料日を追加',card_bills_due:'支払い予定の請求書',empty_no_bills:'まだ請求書が追加されていません。',card_paydays:'給料日',empty_no_paydays:'まだ給料日が設定されていません。',
@@ -1758,6 +1778,7 @@ let currentStatTab='week';
 let currentMutualTab='week';
 let statWeekOffset=0;
 let statMonthOffset=0;
+let statYearOffset=0;
 
 async function initApp(){
   setTodayDates();
@@ -1984,7 +2005,7 @@ function switchScreen(name,el){
   document.getElementById('screen-title').textContent=t(screenTitleKeys[name]||name);
   closePanels('');
   if(name==='finances') renderBillsPaidList();
-  if(name==='stats'){ statWeekOffset=0; statMonthOffset=0; renderStats(); }
+  if(name==='stats'){ statWeekOffset=0; statMonthOffset=0; statYearOffset=0; renderStats(); }
   if(name==='goals') renderGoals();
   if(name==='reminders') renderReminders();
   if(name==='mutual'){ if(mutualPartner) loadPartnerData().then(()=>renderMutualScreen()); else renderMutualScreen(); }
@@ -2404,6 +2425,7 @@ function renderStats(){
   renderPieChart();
   renderWeeklySummary();
   renderMonthlySummary();
+  renderYearlySummary();
   renderOverallAverages();
   renderCategoryAverages();
   renderAllTimeTotals();
@@ -2471,9 +2493,9 @@ function renderPieChart(){
     </div>`).join('');
 }
 
-function getSummaryFor(period,offset){
+function getSummaryFor(period,offset,txs){
   offset=offset||0;
-  const transactions=getData('transactions').filter(tx=>tx.type!=='transfer');
+  const transactions=(txs||getData('transactions')).filter(tx=>tx.type!=='transfer');
   const now=new Date();
   let filtered,rangeLabel;
   if(period==='week'){
@@ -2483,6 +2505,10 @@ function getSummaryFor(period,offset){
     const sunday=new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
     filtered=transactions.filter(tx=>{const d=new Date(tx.date+'T00:00:00'); return d>=monday&&d<=sunday;});
     rangeLabel=fmtDate(monday.toISOString().split('T')[0])+' – '+fmtDate(sunday.toISOString().split('T')[0]);
+  } else if(period==='year'){
+    const y=now.getFullYear()-offset;
+    filtered=transactions.filter(tx=>tx.date&&tx.date.startsWith(y+'-'));
+    rangeLabel=String(y);
   } else {
     const target=new Date(now.getFullYear(),now.getMonth()-offset,1);
     const mk=target.getFullYear()+'-'+String(target.getMonth()+1).padStart(2,'0');
@@ -2512,6 +2538,12 @@ function renderMonthlySummary(){
   document.getElementById('monthly-summary-label').textContent=statMonthOffset===0?t('lbl_monthly_summary'):s.rangeLabel;
   document.getElementById('monthly-summary-content').innerHTML=summaryHTML(s);
   renderCategoryBreakdownChart();
+}
+function navYear(dir){ statYearOffset=Math.max(0,statYearOffset+dir); renderYearlySummary(); }
+function renderYearlySummary(){
+  const s=getSummaryFor('year',statYearOffset);
+  document.getElementById('yearly-summary-label').textContent=statYearOffset===0?t('lbl_yearly_summary'):s.rangeLabel;
+  document.getElementById('yearly-summary-content').innerHTML=summaryHTML(s);
 }
 
 // ── Expenses by Category: donut chart + % breakdown, follows Monthly Summary's selected month ──
@@ -3273,6 +3305,7 @@ function renderMutualGoalsList(){
 }
 
 function renderGoals(){
+  renderGoalCoachCard();
   const goals=getData('goals');
   const accounts=getData('accounts');
   const el=document.getElementById('goals-list');
@@ -3298,7 +3331,7 @@ function renderGoals(){
         <div style="flex:1;min-width:0">
           <div class="envelope-name">${escHtml(g.name)}</div>
           <div class="envelope-amounts">$${fmtNum(g.saved)} / $${fmtNum(g.target)}${g.date?' · '+(daysLeft>0?daysLeft+escHtml(t('days_left')):escHtml(t('past_target'))):''}</div>
-          ${linkedAcct?`<div style="font-size:.72rem;color:var(--accent);margin-top:2px">🏦 ${escHtml(linkedAcct.name)}</div>`:''}
+          ${linkedAcct?`<div style="font-size:.72rem;color:var(--accent);margin-top:2px">🏦 ${escHtml(linkedAcct.name)}${linkedAcct.balance>0&&g.saved>0?' · '+escHtml(t('lbl_of_account').replace('{pct}',Math.round(g.saved/linkedAcct.balance*100))):''}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0"><div class="envelope-pct">${pct}%</div></div>
       </div>
@@ -3314,6 +3347,155 @@ function renderGoals(){
   }).join('');
 }
 
+// ── AI Goal Coach ───────────────────────────────────────────────────────────
+// The numbers (how much per week/month is needed, how that compares with your real average net) are calculated here,
+// so they are always exact. The AI is asked only for the advice; if it is unavailable we fall back to calculated tips.
+function fillTpl(str,map){ return String(str).replace(/\{(\w+)\}/g,(m,k)=>(k in map)?map[k]:m); }
+function usd(n){ return '$'+fmtNum(n); }
+function signedUsd(n){ return (n<0&&Math.abs(n)>=0.005?'-':'')+'$'+fmtNum(Math.abs(n)); }
+const ESSENTIAL_CATS=['🏠 Housing','📱 Utilities','💊 Health'];
+let coachResultSig=null;
+function goalSig(g){ return [g.id,g.saved,g.target,g.date||''].join('|'); }
+function renderGoalCoachCard(){
+  const card=document.getElementById('goal-coach-card');
+  if(!card)return;
+  const goals=getData('goals');
+  card.style.display=goals.length?'block':'none';
+  const sel=document.getElementById('coach-goal-select');
+  const prev=sel.value;
+  sel.innerHTML=goals.map(g=>`<option value="${g.id}">${escHtml((g.type||'').split(' ')[0])} ${escHtml(g.name)} · ${g.date?escHtml(fmtDateLong(g.date)):escHtml(t('coach_no_date'))}</option>`).join('');
+  if(prev&&goals.some(g=>g.id===prev)) sel.value=prev;
+  const cur=goals.find(g=>g.id===sel.value);
+  if(coachResultSig&&(!cur||goalSig(cur)!==coachResultSig)) clearGoalCoachResult();   // the goal changed, so the old plan is stale
+}
+function clearGoalCoachResult(){ coachResultSig=null; const r=document.getElementById('coach-result'); if(r) r.innerHTML=''; }
+function getGoalPlan(g){
+  const now=new Date();
+  const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const remaining=Math.max(0,g.target-g.saved);
+  const avg=getOverallAverages().find(r=>r.key==='month')||{income:0,spent:0,net:0};
+  const plan={remaining,hasDate:!!g.date,incomeMonth:avg.income,spendMonth:avg.spent,netMonth:avg.net,reached:remaining<0.005};
+  if(!g.date){ plan.status=plan.reached?'reached':'nodate'; return plan; }
+  const daysLeft=Math.round((new Date(g.date+'T00:00:00')-today0)/86400000);
+  const span=Math.max(daysLeft,0);
+  plan.daysLeft=daysLeft;
+  plan.needWeek=remaining/Math.max(1,span/7);
+  plan.needMonth=remaining/Math.max(1,span/30.4375);
+  plan.gapMonth=plan.needMonth-avg.net;
+  plan.status=plan.reached?'reached':daysLeft<0?'passed':(plan.gapMonth<=0.005?'ontrack':'short');
+  if(!plan.reached&&avg.net>0.005){
+    const p=new Date(today0); p.setDate(p.getDate()+Math.round(remaining/avg.net*30.4375));
+    plan.projectedISO=localISO(p);   // when you'd get there at your current pace
+  }
+  plan.otherMonth=getData('goals').filter(o=>o.id!==g.id&&o.date).reduce((sum,o)=>{
+    const rem=Math.max(0,o.target-o.saved); if(rem<0.005)return sum;
+    const dl=Math.round((new Date(o.date+'T00:00:00')-today0)/86400000); if(dl<0)return sum;
+    return sum+rem/Math.max(1,dl/30.4375);
+  },0);
+  return plan;
+}
+function goalPlanHTML(plan,g){
+  const row=(label,val,cls)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem"><span style="color:var(--text-secondary)">${escHtml(label)}</span><span class="${cls||''}" style="font-weight:700;text-align:right">${val}</span></div>`;
+  let h=row(t('plan_target_date'),plan.hasDate?escHtml(fmtDateLong(g.date))+(plan.daysLeft>=0?` <span style="font-weight:500;color:var(--text-muted)">· ${escHtml(fillTpl(t('plan_days_left'),{n:plan.daysLeft}))}</span>`:''):'—');
+  h+=row(t('plan_remaining'),usd(plan.remaining));
+  if(plan.hasDate&&!plan.reached&&plan.status!=='passed'){ h+=row(t('plan_need_week'),usd(plan.needWeek)); h+=row(t('plan_need_month'),usd(plan.needMonth)); }
+  h+=row(t('plan_net_month'),signedUsd(plan.netMonth),plan.netMonth>=0?'text-green':'text-red');
+  if(plan.otherMonth>0.005&&!plan.reached) h+=`<div style="font-size:.74rem;color:var(--text-muted);padding:6px 0">${escHtml(fillTpl(t('plan_other_goals'),{amt:usd(plan.otherMonth)}))}</div>`;
+  const verdicts={
+    reached:[t('plan_status_reached'),'var(--green)'],
+    ontrack:[t('plan_status_ontrack'),'var(--green)'],
+    short:[fillTpl(t('plan_status_short'),{amt:usd(plan.gapMonth||0)}),'var(--gold)'],
+    passed:[fillTpl(t('plan_status_passed'),{amt:usd(plan.remaining)}),'var(--red)'],
+  };
+  if(verdicts[plan.status]) h+=`<div style="margin-top:8px;padding:9px 12px;background:var(--surface-2);border-left:3px solid ${verdicts[plan.status][1]};border-radius:8px;font-size:.84rem;font-weight:700">${escHtml(verdicts[plan.status][0])}</div>`;
+  return`<div>${h}</div>`;
+}
+function monthlyBillsTotal(){ return getData('bills').reduce((sum,b)=>{ const f={weekly:52/12,monthly:1,yearly:1/12}[b.recur]; return sum+(f?b.amount*f:0); },0); }
+function buildCoachPrompt(g,plan){
+  const langNames={en:'English',es:'Spanish',ko:'Korean',ja:'Japanese'};
+  const top=getCategoryAverages().slice(0,6).map(c=>`${c.cat}: ${usd(c.monthlyAvg)}/month`).join('\n')||'(no spending recorded yet)';
+  const dateLine=plan.status==='passed'?`${g.date} (already PASSED ${Math.abs(plan.daysLeft)} days ago)`:`${g.date} (${plan.daysLeft} days left)`;
+  return `You are a practical, encouraging personal-finance coach. The user wants to reach a savings goal by a target date. Use ONLY the figures below and do not invent numbers. Give budgeting guidance only (no specific investment or tax advice).
+
+GOAL: "${g.name}" (${g.type||'goal'})
+Target amount: ${usd(g.target)}. Saved so far: ${usd(g.saved)}. Still to save: ${usd(plan.remaining)}.
+Target date: ${dateLine}.
+Required savings: ${usd(plan.needWeek||0)} per week, or ${usd(plan.needMonth||0)} per month.
+
+THEIR FINANCES (averages over the last 6 months, or since their first transaction):
+Income: ${usd(plan.incomeMonth)}/month. Spending: ${usd(plan.spendMonth)}/month. Net (left over): ${signedUsd(plan.netMonth)}/month.
+Recurring bills: about ${usd(monthlyBillsTotal())}/month.
+Their other goals with target dates also need about ${usd(plan.otherMonth||0)}/month combined.
+Biggest spending categories:
+${top}
+
+CURRENT VERDICT: ${plan.status==='ontrack'?'on track':plan.status==='short'?'short by '+usd(plan.gapMonth)+' per month':'target date has passed'}.
+
+Write exactly three short sections using these markdown headers:
+**📌 Verdict** - one or two sentences.
+**✂️ Where to find the money** - 2 to 4 bullet points naming specific categories from the list above and dollar amounts per month or week.
+**🗓️ Action plan** - 3 numbered steps the user can start this week, with concrete amounts.
+If the date looks unrealistic, say so kindly and give the earliest realistic date based on the figures. Keep it under 220 words.${currentLang!=='en'?`\nWrite your entire response in ${langNames[currentLang]}.`:''}`;
+}
+function coachTextHTML(raw){
+  const esc=escHtml(raw);   // escape first (AI text is untrusted), then format
+  const fmt=body=>body.trim().replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n[-•*] /g,'<br>• ').replace(/\n(\d+)\. /g,'<br><span style="font-weight:700;color:var(--accent)">$1.</span> ').replace(/\n/g,'<br>');
+  const sections=esc.split(/\n(?=\*\*[^*\n]+\*\*)/);
+  let h=`<div style="margin-top:12px;font-size:.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">✨ ${escHtml(t('coach_recs_title'))}</div>`;
+  sections.forEach(sec=>{
+    const m=sec.match(/^\*\*([^*\n]+)\*\*\n?([\s\S]*)/);
+    if(!m){ if(sec.trim()) h+=`<div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:.84rem;line-height:1.6">${fmt(sec)}</div>`; return; }
+    if(!m[2].trim())return;
+    h+=`<div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;margin-bottom:8px"><div style="font-size:.78rem;font-weight:700;margin-bottom:6px">${m[1].trim()}</div><div style="font-size:.84rem;line-height:1.6">${fmt(m[2])}</div></div>`;
+  });
+  return h;
+}
+function localCoachTips(plan,g){
+  const tips=[];
+  if(plan.status==='ontrack'){ tips.push(fillTpl(t('lr_ontrack'),{net:usd(plan.netMonth),need:usd(plan.needMonth)})); return tips; }
+  if(plan.netMonth<=0.005) tips.push(fillTpl(t('lr_no_surplus'),{net:signedUsd(plan.netMonth)}));
+  else if(plan.projectedISO) tips.push(fillTpl(t('lr_projected'),{date:fmtDateLong(plan.projectedISO)}));
+  if(plan.status==='passed') return tips;
+  const gap=plan.gapMonth;
+  const flex=getCategoryAverages().filter(c=>!ESSENTIAL_CATS.includes(c.cat)&&c.monthlyAvg>0.005).slice(0,3);
+  const flexSum=flex.reduce((sum,c)=>sum+c.monthlyAvg,0);
+  if(flexSum>0){
+    const pct=Math.min(50,Math.max(1,Math.ceil(gap/flexSum*100)));
+    tips.push(fillTpl(t('lr_cut_intro'),{gap:usd(gap)}));
+    flex.forEach(c=>tips.push(fillTpl(t('lr_cut_item'),{cat:catLabel(c.cat),avg:usd(c.monthlyAvg),pct,save:usd(c.monthlyAvg*pct/100)})));
+    const left=gap-flexSum*pct/100;
+    if(left>0.005) tips.push(fillTpl(t('lr_more'),{gap:usd(left)}));
+  } else tips.push(fillTpl(t('lr_more'),{gap:usd(gap)}));
+  return tips;
+}
+function coachLocalHTML(tips){
+  return`<div style="margin-top:12px;font-size:.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">✨ ${escHtml(t('coach_recs_title'))}</div>
+    <div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;font-size:.84rem;line-height:1.6">${tips.map(x=>'• '+escHtml(x)).join('<br>')}</div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-top:6px">${escHtml(t('coach_local_note'))}</div>`;
+}
+async function runGoalCoach(){
+  const sel=document.getElementById('coach-goal-select'), out=document.getElementById('coach-result'), btn=document.getElementById('coach-btn');
+  const g=getData('goals').find(x=>x.id===sel.value);
+  if(!g)return;
+  const plan=getGoalPlan(g);
+  coachResultSig=goalSig(g);
+  const panel=goalPlanHTML(plan,g);
+  if(plan.status==='nodate'){ out.innerHTML=panel+`<div style="font-size:.82rem;color:var(--text-secondary);margin-top:10px;line-height:1.5">${escHtml(t('coach_need_date'))}</div>`; return; }
+  if(plan.status==='reached'){ out.innerHTML=panel; return; }
+  btn.disabled=true; btn.textContent=t('btn_coach_loading');
+  out.innerHTML=panel+`<div style="text-align:center;padding:14px 0"><div style="display:inline-block;width:24px;height:24px;border:3px solid var(--border-bright);border-top-color:var(--royal);border-radius:50%;animation:spin .8s linear infinite"></div></div>`;
+  let recs;
+  try{
+    const data=await api('POST','/api/ai/analyze',{prompt:buildCoachPrompt(g,plan)});
+    const text=data&&data.content&&data.content[0]&&data.content[0].text;
+    if(!text) throw new Error('No response');
+    recs=coachTextHTML(text);
+  }catch(e){ recs=coachLocalHTML(localCoachTips(plan,g)); }
+  btn.disabled=false; btn.textContent=t('btn_coach_get');
+  if(document.getElementById('coach-goal-select').value!==g.id) return;   // you picked another goal while this was loading
+  out.innerHTML=panel+recs;
+}
+
 function renderAccountUsageChart(goals,accounts){
   const usageCard=document.getElementById('acct-usage-card');
   const usageList=document.getElementById('acct-usage-list');
@@ -3322,22 +3504,32 @@ function renderAccountUsageChart(goals,accounts){
   if(!Object.keys(byAcct).length){usageCard.style.display='none';return;}
   usageCard.style.display='block';
   const COLORS=['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
-  usageList.innerHTML=Object.entries(byAcct).map(([acctId,totalSaved],i)=>{
+  usageList.innerHTML=Object.entries(byAcct).map(([acctId,reserved],i)=>{
     const acct=accounts.find(a=>a.id===acctId);
     if(!acct)return'';
-    const pct=acct.balance+totalSaved>0?Math.min(Math.round(totalSaved/(acct.balance+totalSaved)*100),100):0;
-    const color=COLORS[i%COLORS.length];
+    // How much of THIS account is spoken for = what the linked goals have reserved ÷ the account's balance
+    const bal=acct.balance;
+    const over=reserved>Math.max(bal,0)+0.005;
+    const pct=bal>0?Math.round(reserved/bal*100):(reserved>0?100:0);   // can exceed 100% when over-reserved
+    const available=bal-reserved;
+    const color=over?'var(--red)':COLORS[i%COLORS.length];
     const linked=goals.filter(g=>g.acctId===acctId&&g.saved>0);
     return`<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:.88rem;font-weight:600">🏦 ${escHtml(acct.name)}</div>
-        <div style="font-size:.82rem;font-weight:700;color:${color}">$${fmtNum(totalSaved)} (${pct}%)</div>
+        <div style="font-size:.82rem;font-weight:700;color:${color}">${escHtml(t('lbl_reserved'))} $${fmtNum(reserved)} (${pct}%)</div>
       </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(100,pct)}%;background:${color}"></div></div>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:.72rem;color:var(--text-secondary);margin-top:3px">
+        <span>${escHtml(t('lbl_balance'))} $${fmtNum(bal)}</span>
+        <span>${escHtml(t('lbl_reserved'))} $${fmtNum(reserved)}</span>
+        <span style="${available<-0.005?'color:var(--red);font-weight:600':''}">${escHtml(t('lbl_available'))} ${available<-0.005?'-':''}$${fmtNum(Math.abs(available))}</span>
+      </div>
+      ${over?`<div style="font-size:.74rem;color:var(--red);margin-top:4px">⚠️ ${escHtml(t('warn_over_reserved').replace('{amt}','$'+fmtNum(reserved-Math.max(bal,0))))}</div>`:''}
       <div style="margin-top:6px;padding:6px 10px;background:var(--surface-2);border-radius:8px">
-        ${linked.map(g=>`<div style="display:flex;justify-content:space-between;font-size:.75rem;padding:2px 0">
-          <span>${(g.type||'').split(' ')[0]} ${escHtml(g.name)}</span>
-          <span style="font-weight:600;color:${color}">$${fmtNum(g.saved)} / $${fmtNum(g.target)}</span>
+        ${linked.map(g=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:.75rem;padding:2px 0">
+          <span>${(g.type||'').split(' ')[0]} ${escHtml(g.name)}${bal>0?` <span style="color:var(--text-muted)">· ${escHtml(t('lbl_of_account').replace('{pct}',Math.round(g.saved/bal*100)))}</span>`:''}</span>
+          <span style="font-weight:600;color:${color};white-space:nowrap">$${fmtNum(g.saved)} / $${fmtNum(g.target)}</span>
         </div>`).join('')}
       </div>
     </div>`;
@@ -3499,8 +3691,6 @@ function renderMutualChart(){
   const myD=getSpendData(null,currentMutualTab);
   const partD=getSpendData(mutualPartner,currentMutualTab);
   const combined={ labels:myD.labels, income:myD.income.map((v,i)=>v+partD.income[i]), expense:myD.expense.map((v,i)=>v+partD.expense[i]) };
-  const tabLabels={week:t('tab_weekly'),month:t('tab_monthly'),year:t('tab_yearly')};
-  document.getElementById('mutual-summary-label').textContent=tabLabels[currentMutualTab]+' · '+t('card_combined_monthly').split(' ')[0];
   const ctx=document.getElementById('mutual-chart').getContext('2d');
   if(mutualChart)mutualChart.destroy();
   mutualChart=new Chart(ctx,{
@@ -3514,20 +3704,11 @@ function renderMutualChart(){
 }
 function renderMutualSummary(){
   if(!mutualPartner)return;
-  const myS=getSummaryFor(currentMutualTab==='year'?'month':'week',0);
-  const partTx=getDataFor(mutualPartner,'transactions');
-  const now=new Date();
-  let pFiltered;
-  if(currentMutualTab==='week'){
-    const day=now.getDay();const monday=new Date(now);monday.setDate(now.getDate()-(day===0?6:day-1));monday.setHours(0,0,0,0);
-    pFiltered=partTx.filter(tx=>{const d=new Date(tx.date+'T00:00:00');return d>=monday&&d<=now;});
-  } else {
-    pFiltered=partTx.filter(tx=>tx.date&&tx.date.startsWith(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')));
-  }
-  const pIncome=pFiltered.filter(tx=>tx.type==='income').reduce((s,tx)=>s+tx.amount,0);
-  const pExpense=pFiltered.filter(tx=>tx.type==='expense').reduce((s,tx)=>s+tx.amount,0);
-  const combined={income:myS.income+pIncome,expense:myS.expense+pExpense,net:myS.net+(pIncome-pExpense)};
-  document.getElementById('mutual-summary-content').innerHTML=summaryHTML(combined);
+  const txs=getCombinedTransactions();   // both of you, added together
+  [['mutual-summary-content','week'],['mutual-monthly-summary-content','month'],['mutual-yearly-summary-content','year']].forEach(([id,period])=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=summaryHTML(getSummaryFor(period,0,txs));
+  });
 }
 function renderMutualTransactions(myName,partnerName){
   const myTx=getData('transactions').map(tx=>({...tx,who:myName}));
